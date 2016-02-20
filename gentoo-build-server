@@ -1,0 +1,119 @@
+#!/usr/bin/python3
+# -*- coding: utf-8; tab-width: 4; indent-tabs-mode: t -*-
+
+import os
+import sys
+import shutil
+import tempfile
+import logging
+import logging.handlers
+import argparse
+import signal
+from daemon import daemon
+from daemon import pidfile
+from gi.repository import GLib
+from dbus.mainloop.glib import DBusGMainLoop
+
+sys.path.append('/usr/lib/selfnetd')
+sys.path.append('/usr/lib/selfnetd/modules')		# fixme
+from sn_util import SnUtil
+from sn_param import SnParam
+from sn_manager_config import SnConfigManager
+from sn_manager_local import SnLocalManager
+from sn_manager_peer import SnPeerManager
+from sn_dbus import DbusMainObject
+
+
+def parseArgs():
+    argParser = argparse.ArgumentParser()
+    argParser.add_argument("--pid-file", dest='pid_file', help="Specify location of a PID file.")
+    argParser.add_argument("-d", "--debug-level", dest='debug_level',
+                           choices=['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG'], default="WARNING",
+                           help="Set output debug message level")
+    return argParser.parse_args()
+
+
+def sighandler_hup(signum):
+    global param
+    if param.disposeFlag == 0:
+        logging.debug("selfnetd: SIGHUP occured")
+    else:
+        logging.debug("selfnetd: SIGHUP ignored, in disposing")
+
+
+def sighandler_int(signum):
+    global param
+    if param.disposeFlag == 0:
+        logging.debug("selfnetd: SIGINT occured")
+        SnUtil.idleInvoke(_dispose)
+    else:
+        logging.debug("selfnetd: SIGINT ignored, already in disposing")
+
+
+def sighandler_term(signum):
+    global param
+    if param.disposeFlag == 0:
+        logging.debug("selfnetd: SIGTERM occured")
+        SnUtil.idleInvoke(_dispose)
+    else:
+        logging.debug("selfnetd: SIGTERM ignored, already in disposing")
+
+
+def _dispose():
+    global param
+    if param.disposeFlag == 0:
+        param.dbusMainObject.release()
+        param.disposeFlag = 1
+        param.peerManager.dispose(_dispose)
+    elif param.disposeFlag == 1:
+        param.disposeFlag = 2
+        param.localManager.dispose(_dispose)
+    elif param.disposeFlag == 2:
+        param.mainloop.quit()
+    else:
+        assert False
+
+################################################################################
+
+parseResult = parseArgs()
+
+# initialize SnParam
+param = SnParam()
+if parseResult.pid_file is not None:
+    param.pidFile = parseResult.pid_file
+param.disposeFlag = 0
+param.logLevel = parseResult.debug_level
+
+try:
+    # create directory
+    SnUtil.mkDir(param.logDir)
+    SnUtil.mkDirAndClear(param.runDir)
+    param.tmpDir = tempfile.mkdtemp(prefix="gentoo-build-server-")
+
+    # set logging parameter
+    logging.getLogger().addHandler(logging.StreamHandler(sys.stderr))
+    logging.getLogger().setLevel(SnUtil.getLoggingLevel(param.logLevel))
+
+    try:
+        # create main loop
+        param.mainloop = GLib.MainLoop()
+
+        # add signal handlers
+        GLib.unix_signal_add(GLib.PRIORITY_HIGH, signal.SIGINT, sighandler_int, None)
+        GLib.unix_signal_add(GLib.PRIORITY_HIGH, signal.SIGTERM, sighandler_term, None)
+
+        # start main loop
+        logging.info("main: Mainloop begins")
+        param.mainloop.run()
+        logging.info("main: Mainloop exits")
+    finally:
+        logging.shutdown()
+except Exception as e:
+    logging.exception(e)
+    raise
+finally:
+    # shouldn't remove log directory
+    if param.tmpDir is not None and os.path.exists(param.tmpDir):
+        shutil.rmtree(param.tmpDir)
+    if os.path.exists(param.runDir):
+        shutil.rmtree(param.runDir)
