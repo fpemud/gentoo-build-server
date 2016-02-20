@@ -1,0 +1,13 @@
+[Unit]
+Description=Gentoo Build Server
+After=network.target
+
+[Service]
+Type=fork
+PIDFile=/run/gentoo-build-server/gentoo-build-server.pid
+ExecStart=/usr/sbin/gentoo-build-server
+ExecReload=/bin/kill -HUP $MAINPID
+
+[Install]
+WantedBy=multi-user.target
+
