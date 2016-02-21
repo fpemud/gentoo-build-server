@@ -10,11 +10,12 @@ class SnParam:
         self.cfgDir = "/etc/gentoo-build-server"
         self.libDir = "/usr/lib/gentoo-build-server"
         self.runDir = "/run/gentoo-build-server"
-        self.cacheDir = "/var/cache/gentoo-build-server"
+        self.varDir = "/var/gentoo-build-server"
         self.logDir = "/var/log/gentoo-build-server"
 
         self.pidFile = os.path.join(self.runDir, "gentoo-build-server.pid")
         self.logFile = os.path.join(self.logDir, "main.log")
+        self.clientDataFile = os.path.join(self.varDir, "client.dat") 
 
         self.clientTimeoutInterval = 120            # 120 seconds
 

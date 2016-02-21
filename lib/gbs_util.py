@@ -221,7 +221,7 @@ class FTPd(threading.Thread):
     _flag_started = threading.Event()
     _flag_stopped = threading.Event()
 
-    def __init__(self, port, homedir):
+    def __init__(self, port, homedir, allow_ip):
         threading.Thread.__init__(self)
         self._timeout = None
         self._serving = False
