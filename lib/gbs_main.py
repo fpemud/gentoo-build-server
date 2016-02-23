@@ -9,6 +9,7 @@ import subprocess
 from gi.repository import GLib
 from gbs_util import GbsUtil
 
+
 class GbsClient:
 
     def __init__(self):
@@ -69,11 +70,11 @@ class GbsMain:
             # set up rsync server
             client.rsyncPort = GbsUtil.getFreeTcpPort()
             client.rsyncProc = self._runRsyncDaemon(client)
-           
+
             # set up ssh server
             client.sshPort = GbsUtil.getFreeTcpPort()
             client.sshProc = self._runSshServer(client)
-            
+
             # set up ftp server
             client.ftpPort = GbsUtil.getFreeTcpPort()
             client.ftpServer = GbsUtil.FTPd(client.ftpPort, client.rootDir, client.ip)
@@ -151,13 +152,13 @@ class GbsMain:
         proc = subprocess.Popen(cmd, shell=True, universal_newlines=True)
 
         return proc
-        
+
     def _runSshServer(self, client):
         # generate configuration file
         # cfgf = os.path.join(self.param.tmpDir, "%s-sshd.conf" % (client.uud))
         # with open(cfgf, "w") as f:
         #     pass
-            
+
         # run sshd process
         cmd = "/usr/sbin/sshd -D -p %d " % (client.sshPort)
         proc = subprocess.Popen(cmd, shell=True, universal_newlines=True)

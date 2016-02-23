@@ -15,7 +15,7 @@ class GbsParam:
 
         self.pidFile = os.path.join(self.runDir, "gentoo-build-server.pid")
         self.logFile = os.path.join(self.logDir, "main.log")
-        self.clientDataFile = os.path.join(self.varDir, "client.dat") 
+        self.clientDataFile = os.path.join(self.varDir, "client.dat")
 
         self.clientTimeoutInterval = 120            # 120 seconds
 
