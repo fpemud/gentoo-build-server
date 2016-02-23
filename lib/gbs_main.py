@@ -23,8 +23,6 @@ class GbsClient:
         self.rsyncPort = None
         self.sshProc = None
         self.sshPort = None
-        self.ftpServer = None
-        self.ftpPort = None
 
 
 class GbsClientData:
@@ -75,11 +73,6 @@ class GbsMain:
             client.sshPort = GbsUtil.getFreeTcpPort()
             client.sshProc = self._runSshServer(client)
 
-            # set up ftp server
-            client.ftpPort = GbsUtil.getFreeTcpPort()
-            client.ftpServer = GbsUtil.FTPd(client.ftpPort, client.rootDir, client.ip)
-            client.ftpServer.start()
-
             # add timeout handler
             client.timeoutHandler = GLib.timeout_add_seconds(self.param.clientTimeoutInterval, self._clientTimeoutCallback, client)
 
@@ -89,8 +82,6 @@ class GbsMain:
         except:
             if client.timeoutHandler is not None:
                 GLib.source_remove(client.timeoutHandler)
-            if client.ftpServer is not None:
-                client.ftpServert.stop()
             if client.sshProc is not None:
                 client.sshProc.terminate()
                 client.sshProc.wait()
@@ -106,14 +97,11 @@ class GbsMain:
         GLib.source_remove(client.timeoutHandler)
 
         try:
-            client.ftpServer.stop()
-        except:
-            pass
-        try:
             client.sshProc.terminate()
             client.sshProc.wait()
         except:
             pass
+
         try:
             client.rsyncProc.terminate()
             client.rsyncProc.wait()
