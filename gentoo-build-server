@@ -9,19 +9,10 @@ import logging
 import logging.handlers
 import argparse
 import signal
-from daemon import daemon
-from daemon import pidfile
 from gi.repository import GLib
-from dbus.mainloop.glib import DBusGMainLoop
-
-sys.path.append('/usr/lib/selfnetd')
-sys.path.append('/usr/lib/selfnetd/modules')		# fixme
-from sn_util import SnUtil
-from sn_param import SnParam
-from sn_manager_config import SnConfigManager
-from sn_manager_local import SnLocalManager
-from sn_manager_peer import SnPeerManager
-from sn_dbus import DbusMainObject
+sys.path.append('/usr/lib/gentoo-build-server')
+from gbs_util import PyroServer
+from gbs_param import GbsParam
 
 
 def parseArgs():
@@ -45,7 +36,7 @@ def sighandler_int(signum):
     global param
     if param.disposeFlag == 0:
         logging.debug("selfnetd: SIGINT occured")
-        SnUtil.idleInvoke(_dispose)
+        GbsUtil.idleInvoke(_dispose)
     else:
         logging.debug("selfnetd: SIGINT ignored, already in disposing")
 
@@ -54,7 +45,7 @@ def sighandler_term(signum):
     global param
     if param.disposeFlag == 0:
         logging.debug("selfnetd: SIGTERM occured")
-        SnUtil.idleInvoke(_dispose)
+        GbsUtil.idleInvoke(_dispose)
     else:
         logging.debug("selfnetd: SIGTERM ignored, already in disposing")
 
@@ -78,7 +69,7 @@ def _dispose():
 parseResult = parseArgs()
 
 # initialize SnParam
-param = SnParam()
+param = GbsParam()
 if parseResult.pid_file is not None:
     param.pidFile = parseResult.pid_file
 param.disposeFlag = 0
@@ -86,17 +77,23 @@ param.logLevel = parseResult.debug_level
 
 try:
     # create directory
-    SnUtil.mkDir(param.logDir)
-    SnUtil.mkDirAndClear(param.runDir)
+    GbsUtil.mkDir(param.logDir)
+    GbsUtil.mkDirAndClear(param.runDir)
     param.tmpDir = tempfile.mkdtemp(prefix="gentoo-build-server-")
 
     # set logging parameter
     logging.getLogger().addHandler(logging.StreamHandler(sys.stderr))
-    logging.getLogger().setLevel(SnUtil.getLoggingLevel(param.logLevel))
+    logging.getLogger().setLevel(GbsUtil.getLoggingLevel(param.logLevel))
 
     try:
+        # create main object
+        param.pyroServer = PyroServer("0.0.0.0", 2230)
+        param.mainObject = GbsMainObject(param)
+        param.pyroServer.register("mainobj", param.mainObject)
+
         # create main loop
         param.mainloop = GLib.MainLoop()
+        param.pyroServer.attach(param.mainloop)
 
         # add signal handlers
         GLib.unix_signal_add(GLib.PRIORITY_HIGH, signal.SIGINT, sighandler_int, None)

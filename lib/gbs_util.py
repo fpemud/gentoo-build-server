@@ -2,18 +2,16 @@
 # -*- coding: utf-8; tab-width: 4; indent-tabs-mode: t -*-
 
 import os
+import time
 import logging
 import shutil
 import subprocess
-import pwd
 import socket
-import re
 import threading
+import Pyro4
 from gi.repository import GLib
-from gi.repository import GObject
 from pyftpdlib.authorizers import DummyAuthorizer
 from pyftpdlib.handlers import FTPHandler
-from pyftpdlib.ioloop import IOLoop
 from pyftpdlib.servers import FTPServer
 
 class GbsUtil:
@@ -56,7 +54,7 @@ class GbsUtil:
         fdst = os.path.join(dstdir, os.path.basename(srcFilename))
         shutil.copy(srcFilename, fdst)
         if mode is not None:
-            SnUtil.shell("/bin/chmod " + mode + " \"" + fdst + "\"")
+            GbsUtil.shell("/bin/chmod " + mode + " \"" + fdst + "\"")
 
     @staticmethod
     def copyToFile(srcFilename, dstFilename, mode=None):
@@ -66,17 +64,17 @@ class GbsUtil:
             os.makedirs(os.path.dirname(dstFilename))
         shutil.copy(srcFilename, dstFilename)
         if mode is not None:
-            SnUtil.shell("/bin/chmod " + mode + " \"" + dstFilename + "\"")
+            GbsUtil.shell("/bin/chmod " + mode + " \"" + dstFilename + "\"")
 
     @staticmethod
     def mkDir(dirname):
         if not os.path.isdir(dirname):
-            SnUtil.forceDelete(dirname)
+            GbsUtil.forceDelete(dirname)
             os.mkdir(dirname)
 
     @staticmethod
     def mkDirAndClear(dirname):
-        SnUtil.forceDelete(dirname)
+        GbsUtil.forceDelete(dirname)
         os.mkdir(dirname)
 
     @staticmethod
@@ -206,6 +204,26 @@ class GbsUtil:
             return logging.DEBUG
         else:
             assert False
+
+
+class PyroServer:
+
+    def __init__(self, ipaddr, port):
+        self.pyroDaemon = Pyro4.Daemon(ipaddr, port)
+
+    def attach(self, mainloop):
+        GLib.io_add_watch(self.pyroDaemon.sockets[0], GLib.IO_IN, self._handleEvent)
+
+    def register(self, name, obj):
+        self.pyroDaemon.register(obj, name)
+
+    def unregister(self, name):
+        """no unregister needed currently"""
+        assert False
+
+    def _handleEvent(self, socket, *args):
+        self.pyroDaemon.events([socket])
+        return True
 
 
 class FTPd(threading.Thread):

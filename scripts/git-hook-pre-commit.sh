@@ -1,12 +1,12 @@
 #!/bin/bash
 
-FILES="./selfnetd ./selfnetctl"
-FILES="${FILES} $(find ./lib -name '*.py' | tr '\n' ' ')"
-FILES="${FILES} $(find ./libexec -name '*.py' | tr '\n' ' ')"
-FILES="${FILES} $(find ./modules -name '*.py' | tr '\n' ' ')"
+ROOTDIR=$(realpath $(dirname $(realpath "$0"))/..)
+BIN_FILES="${ROOTDIR}/gentoo-build-server"
+LIB_FILES="$(find ${ROOTDIR}/lib -name '*.py' | tr '\n' ' ')"
+
 ERRFLAG=0
 
-OUTPUT=`pyflakes ${FILES} 2>&1`
+OUTPUT=`pyflakes ${BIN_FILES} ${LIB_FILES} 2>&1`
 if [ -n "$OUTPUT" ] ; then
     echo "pyflake errors:"
     echo "$OUTPUT"
@@ -14,7 +14,7 @@ if [ -n "$OUTPUT" ] ; then
     ERRFLAG=1
 fi
 
-OUTPUT=`pep8 ${FILES} | grep -Ev "E265|E501|W191"`
+OUTPUT=`pep8 ${BIN_FILES} | grep -Ev "E402|E501"`
 if [ -n "$OUTPUT" ] ; then
     echo "pep8 errors:"
     echo "$OUTPUT"
@@ -22,9 +22,9 @@ if [ -n "$OUTPUT" ] ; then
     ERRFLAG=1
 fi
 
-OUTPUT=`unittest/autotest.py 2>&1`
-if [ "$?" == 1 ] ; then
-    echo "unittest errors:"
+OUTPUT=`pep8 ${LIB_FILES} | grep -Ev "E402|E501"`
+if [ -n "$OUTPUT" ] ; then
+    echo "pep8 errors:"
     echo "$OUTPUT"
     echo ""
     ERRFLAG=1

@@ -1,6 +1,14 @@
 #!/usr/bin/python3
 # -*- coding: utf-8; tab-width: 4; indent-tabs-mode: t -*-
 
+import os
+import uuid
+import pickle
+import datetime
+import subprocess
+from gi.repository import GLib
+from gbs_util import GbsUtil
+
 class GbsClient:
 
     def __init__(self):
@@ -12,8 +20,8 @@ class GbsClient:
         self.timeoutHandler = None
         self.rsyncProc = None
         self.rsyncPort = None
-        self.rshProc = None
-        self.rshPort = None
+        self.sshProc = None
+        self.sshPort = None
         self.ftpServer = None
         self.ftpPort = None
 
@@ -37,7 +45,7 @@ class GbsMain:
             raise Exception("the specified client %s does not exist" % (clientUuid))
 
         # create client object
-        client = GbsClientInfo()
+        client = GbsClient()
         if clientUuid is not None:
             client.uuid = clientUuid
         else:
@@ -62,9 +70,9 @@ class GbsMain:
             client.rsyncPort = GbsUtil.getFreeTcpPort()
             client.rsyncProc = self._runRsyncDaemon(client)
            
-            # set up rsh server
-            client.rshPort = GbsUtil.getFreeTcpPort()
-            client.rshProc = self._runRshServer(client)
+            # set up ssh server
+            client.sshPort = GbsUtil.getFreeTcpPort()
+            client.sshProc = self._runSshServer(client)
             
             # set up ftp server
             client.ftpPort = GbsUtil.getFreeTcpPort()
@@ -82,9 +90,9 @@ class GbsMain:
                 GLib.source_remove(client.timeoutHandler)
             if client.ftpServer is not None:
                 client.ftpServert.stop()
-            if client.rshProc is not None:
-                client.rshProc.terminate()
-                client.rshProc.wait()
+            if client.sshProc is not None:
+                client.sshProc.terminate()
+                client.sshProc.wait()
             if client.rsyncProc is not None:
                 client.rsyncProc.terminate()
                 client.rsyncProc.wait()
@@ -101,8 +109,8 @@ class GbsMain:
         except:
             pass
         try:
-            client.rshProc.terminate()
-            client.rshProc.wait()
+            client.sshProc.terminate()
+            client.sshProc.wait()
         except:
             pass
         try:
@@ -126,13 +134,12 @@ class GbsMain:
 
     def _runRsyncDaemon(self, client):
         # generate configuration file
-        cfgf = os.path.join(self.param.tmpDir, "%s-rsync.conf" % (client.uud))
+        cfgf = os.path.join(self.param.tmpDir, "%s-rsyncd.conf" % (client.uud))
         with open(cfgf, "w") as f:
             f.write("[main]\n")
             f.write("path = %s\n" % (client.rootDir))
             f.write("read only = no\n")
             f.write("hosts allow = %s\n" % (client.ip))
-            f.write(")
 
         # run rsync process
         cmd = ""
@@ -145,8 +152,17 @@ class GbsMain:
 
         return proc
         
-    def _runRshServer(self, client):
-        return None
+    def _runSshServer(self, client):
+        # generate configuration file
+        # cfgf = os.path.join(self.param.tmpDir, "%s-sshd.conf" % (client.uud))
+        # with open(cfgf, "w") as f:
+        #     pass
+            
+        # run sshd process
+        cmd = "/usr/sbin/sshd -D -p %d " % (client.sshPort)
+        proc = subprocess.Popen(cmd, shell=True, universal_newlines=True)
+
+        return proc
 
     def _saveClientToDb(self, client):
         ret = pickle.load(self.param.clientDataFile)

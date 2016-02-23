@@ -4,7 +4,7 @@
 import os
 
 
-class SnParam:
+class GbsParam:
 
     def __init__(self):
         self.cfgDir = "/etc/gentoo-build-server"
@@ -22,5 +22,6 @@ class SnParam:
         self.tmpDir = None              # str
         self.logLevel = None            # enum
 
-        self.mainloop = None            # obj
-        self.mainObject = None          # obj
+        self.mainloop = None
+        self.mainObject = None
+        self.pyroServer = None
