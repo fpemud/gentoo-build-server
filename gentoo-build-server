@@ -12,7 +12,9 @@ import signal
 from gi.repository import GLib
 sys.path.append('/usr/lib/gentoo-build-server')
 from gbs_util import PyroServer
+from gbs_util import GbsUtil
 from gbs_param import GbsParam
+from gbs_interface import GbsMainObject
 
 
 def parseArgs():
