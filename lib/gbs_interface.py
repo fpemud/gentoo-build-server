@@ -30,8 +30,5 @@ class GbsSessionObject:
     def getRsyncPort(self):
         return self.client.rsyncPort
 
-    def getRshPort(self):
-        return self.client.rshPort
-
-    def getFtpPort(self):
-        return self.client.ftpPort
+    def getSshPort(self):
+        return self.client.sshPort
