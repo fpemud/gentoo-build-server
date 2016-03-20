@@ -6,7 +6,6 @@ import logging
 import shutil
 import subprocess
 import socket
-import Pyro4
 from gi.repository import GLib
 # from pyftpdlib.authorizers import DummyAuthorizer
 # from pyftpdlib.handlers import FTPHandler
@@ -203,23 +202,3 @@ class GbsUtil:
             return logging.DEBUG
         else:
             assert False
-
-
-class PyroServer:
-
-    def __init__(self, ipaddr, port):
-        self.pyroDaemon = Pyro4.Daemon(ipaddr, port)
-
-    def attach(self, mainloop):
-        GLib.io_add_watch(self.pyroDaemon.sockets[0], GLib.IO_IN, self._handleEvent)
-
-    def register(self, name, obj):
-        self.pyroDaemon.register(obj, name)
-
-    def unregister(self, name):
-        """no unregister needed currently"""
-        assert False
-
-    def _handleEvent(self, socket, *args):
-        self.pyroDaemon.events([socket])
-        return True

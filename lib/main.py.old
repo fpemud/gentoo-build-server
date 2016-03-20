@@ -35,9 +35,51 @@ class GbsClientData:
 
 class GbsMain:
 
-    def __init__(self, param):
-        self.param = param
+    def __init__(self):
+        self.param = GbsParam()
         self.clientDict = dict()
+    
+    def run_app(self):
+        parseResult = self._parseArgs()
+
+        # initialize GbsParam
+        if parseResult.pid_file is not None:
+            self.param.pidFile = parseResult.pid_file
+        self.param.disposeFlag = 0
+        self.param.logLevel = parseResult.debug_level
+
+        try:
+            # create directory
+            GbsUtil.mkDir(self.param.logDir)
+            GbsUtil.mkDirAndClear(self.param.runDir)
+            self.param.tmpDir = tempfile.mkdtemp(prefix="gentoo-build-server-")
+        
+            # set logging parameter
+            logging.getLogger().addHandler(logging.StreamHandler(sys.stderr))
+            logging.getLogger().setLevel(GbsUtil.getLoggingLevel(self.param.logLevel))
+
+            # start web server
+            self.appRestfulApi = Flask(__name__)
+            self.appRestfulApi.run()
+        except Exception as e:
+            logging.exception(e)
+            raise
+        finally:
+            # shouldn't remove log directory
+            if param.tmpDir is not None and os.path.exists(param.tmpDir):
+                shutil.rmtree(param.tmpDir)
+            if os.path.exists(param.runDir):
+                shutil.rmtree(param.runDir)
+            logging.shutdown()
+    
+    def _parseArgs():
+        argParser = argparse.ArgumentParser()
+        argParser.add_argument("--pid-file", dest='pid_file', help="Specify location of a PID file.")
+        argParser.add_argument("-d", "--debug-level", dest='debug_level',
+                            choices=['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG'], default="WARNING",
+                            help="Set output debug message level")
+        return argParser.parse_args()
+    
 
     def clientLogin(self, clientUuid, clientName, clientIp):
         if clientUuid is not None and not self.clientExists(clientUuid):

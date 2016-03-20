@@ -7,21 +7,23 @@ import os
 class GbsParam:
 
     def __init__(self):
-        self.cfgDir = "/etc/gentoo-build-server"
         self.libDir = "/usr/lib/gentoo-build-server"
+        self.wsgiDir = os.path.join(self.libDir, "wsgi")
         self.runDir = "/run/gentoo-build-server"
         self.varDir = "/var/gentoo-build-server"
-        self.logDir = "/var/log/gentoo-build-server"
 
         self.pidFile = os.path.join(self.runDir, "gentoo-build-server.pid")
-        self.logFile = os.path.join(self.logDir, "main.log")
+
+        self.clientPasswdFile = os.path.join(self.varDir, "htpasswd")
         self.clientDataFile = os.path.join(self.varDir, "client.dat")
+        self.clientTimeoutInterval = 120                                        # 120 seconds
 
-        self.clientTimeoutInterval = 120            # 120 seconds
-
-        self.tmpDir = None              # str
+        self.port = None                # int
+        self.authType = None            # "NONE", "HTPASSWD"
         self.logLevel = None            # enum
+        self.tmpDir = None
+        self.httpServer = None
 
-        self.mainloop = None
-        self.mainObject = None
-        self.pyroServer = None
+    @property
+    def webRootDir(self):
+        return os.path.join(self.tmpDir, "webroot")

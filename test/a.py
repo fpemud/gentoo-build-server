@@ -5,9 +5,7 @@
 
 from twisted.cred import portal
 from twisted.conch import avatar
-from twisted.conch.checkers import (
-    InMemoryUsernamePasswordDatabaseDontUse,
-    SSHPublicKeyChecker, InMemoryKeyMapping)
+from twisted.conch.checkers import UNIXPasswordDatabase
 from twisted.conch.ssh import factory, userauth, connection, keys, session
 from twisted.internet import reactor, protocol
 from twisted.python import log
@@ -90,27 +88,29 @@ from twisted.python import components
 components.registerAdapter(ExampleSession, ExampleAvatar, session.ISession)
 
 class ExampleFactory(factory.SSHFactory):
-    publicKeys = {
-        'ssh-rsa': keys.Key.fromString(data=publicKey)
-    }
-    privateKeys = {
-        'ssh-rsa': keys.Key.fromString(data=privateKey)
-    }
-    services = {
-        'ssh-userauth': userauth.SSHUserAuthServer,
-        'ssh-connection': connection.SSHConnection
-    }
+
+    def __init__(self):
+        self.publicKeys = {
+            'ssh-rsa': keys.Key.fromString(data=publicKey)
+        }
+        self.privateKeys = {
+            'ssh-rsa': keys.Key.fromString(data=privateKey)
+        }
+        self.services = {
+            'ssh-userauth': userauth.SSHUserAuthServer,
+            'ssh-connection': connection.SSHConnection
+        }
 
 
 portal = portal.Portal(ExampleRealm())
-passwdDB = InMemoryUsernamePasswordDatabaseDontUse()
-passwdDB.addUser('user', 'password')
-sshDB = SSHPublicKeyChecker(InMemoryKeyMapping(
-    {'user': [keys.Key.fromString(data=publicKey)]}))
-portal.registerChecker(passwdDB)
-portal.registerChecker(sshDB)
-ExampleFactory.portal = portal
+#portal.registerChecker(UNIXPasswordDatabase())
+factory = ExampleFactory()
+factory.portal = portal
 
 if __name__ == '__main__':
-    reactor.listenTCP(5022, ExampleFactory())
-    reactor.run()
+    try:
+        reactor.listenTCP(5022, factory)
+        reactor.run()
+    finally:
+        print(factory.services["ssh-userauth"].authenticatedWith)
+
