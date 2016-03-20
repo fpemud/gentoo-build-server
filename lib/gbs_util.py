@@ -2,6 +2,8 @@
 # -*- coding: utf-8; tab-width: 4; indent-tabs-mode: t -*-
 
 import os
+import pwd
+import grp
 import logging
 import shutil
 import subprocess
@@ -13,6 +15,16 @@ from gi.repository import GLib
 
 
 class GbsUtil:
+
+    @staticmethod
+    def dropPrivileges(uid_name, gid_name):
+        os.setgid(grp.getgrnam(gid_name)[2])
+        os.setuid(pwd.getpwnam(uid_name)[2])
+        #os.umask(077)
+
+    @staticmethod
+    def chown(filename, uid_name, gid_name):
+        os.chown(filename, pwd.getpwnam(uid_name)[2], grp.getgrnam(gid_name)[2])
 
     @staticmethod
     def getFreeTcpPort(start_port=10000, end_port=65536):

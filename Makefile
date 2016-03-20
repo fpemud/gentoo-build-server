@@ -17,6 +17,8 @@ install:
 	install -d -m 0755 "$(DESTDIR)/$(prefix)/lib/systemd/system"
 	install -m 0644 data/gentoo-build-server.service "$(DESTDIR)/$(prefix)/lib/systemd/system"
 
+	install -d -o portage -g portage -m 0755 "$(DESTDIR)/var/log/gentoo-build-server"
+
 uninstall:
 	rm -Rf "$(DESTDIR)/$(prefix)/lib/gentoo-build-server"
 

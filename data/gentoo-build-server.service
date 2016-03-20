@@ -7,6 +7,8 @@ Type=fork
 PIDFile=/run/gentoo-build-server/gentoo-build-server.pid
 ExecStart=/usr/sbin/gentoo-build-server
 ExecReload=/bin/kill -HUP $MAINPID
+User=portage
+Group=portage
 
 [Install]
 WantedBy=multi-user.target

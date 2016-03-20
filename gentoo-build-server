@@ -7,6 +7,7 @@ import shutil
 import tempfile
 import argparse
 sys.path.append('/usr/lib/gentoo-build-server')
+from gbs_util import GbsUtil
 from gbs_param import GbsParam
 from gbs_httpd import GbsHttpDaemon
 
@@ -24,6 +25,7 @@ if True:
                            choices=['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG'], default="WARNING",
                            help="Set output debug message level")
     parseResult = argParser.parse_args()
+
 
 param = GbsParam()
 try:
@@ -49,8 +51,11 @@ try:
         param.pidFile = parseResult.pid_file
     param.logLevel = parseResult.debug_level
 
-    # create temporary directory
+    # create directories
     param.tmpDir = tempfile.mkdtemp(prefix="gentoo-build-server-")
+    GbsUtil.chown(param.tmpDir, param.user, param.group)
+    GbsUtil.mkDirAndClear(param.webRootDir)
+    GbsUtil.chown(param.webRootDir, param.user, param.group)
 
     # start http server
     param.httpServer = GbsHttpDaemon(param)

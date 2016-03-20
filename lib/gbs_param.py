@@ -7,6 +7,9 @@ import os
 class GbsParam:
 
     def __init__(self):
+        self.user = "portage"
+        self.group = "portage"
+
         self.libDir = "/usr/lib/gentoo-build-server"
         self.wsgiDir = os.path.join(self.libDir, "wsgi")
         self.runDir = "/run/gentoo-build-server"
