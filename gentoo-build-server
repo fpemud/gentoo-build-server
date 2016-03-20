@@ -11,9 +11,11 @@ from gbs_param import GbsParam
 from gbs_httpd import GbsHttpDaemon
 
 
+# parse parameter
 parseResult = None
 if True:
     argParser = argparse.ArgumentParser()
+    argParser.add_argument("--protocol", choices=['HTTP', 'HTTPS'], help="Specify protocol.")
     argParser.add_argument("--port", help="Specify listening port.")
     argParser.add_argument("--auth-type", dest='auth_type',
                            choices=['NONE', 'HTPASSWD'], help="Specify authencation type.")
@@ -25,11 +27,20 @@ if True:
 
 param = GbsParam()
 try:
-    # parse parameter
+    # fill GbsParam
+    if parseResult.protocol is not None:
+        param.protocol = parseResult.protocol
+    else:
+        param.protocol = "HTTP"
     if parseResult.port is not None:
         param.port = parseResult.port
     else:
-        param.port = 80
+        if param.protocol == "HTTP":
+            param.port = 80
+        elif param.protocol == "HTTPS":
+            param.port = 443
+        else:
+            assert False
     if parseResult.auth_type is not None:
         param.authType = parseResult.auth_type
     else:
@@ -37,11 +48,14 @@ try:
     if parseResult.pid_file is not None:
         param.pidFile = parseResult.pid_file
     param.logLevel = parseResult.debug_level
+
+    # create temporary directory
     param.tmpDir = tempfile.mkdtemp(prefix="gentoo-build-server-")
 
     # start http server
     param.httpServer = GbsHttpDaemon(param)
-    param.httpServer.run()
+    proc = param.httpServer.run()
+    proc.wait()
 finally:
     if param.tmpDir is not None and os.path.exists(param.tmpDir):
         shutil.rmtree(param.tmpDir)

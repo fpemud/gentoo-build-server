@@ -11,6 +11,7 @@ class GbsParam:
         self.wsgiDir = os.path.join(self.libDir, "wsgi")
         self.runDir = "/run/gentoo-build-server"
         self.varDir = "/var/gentoo-build-server"
+        self.logDir = "/var/log/gentoo-build-server"
 
         self.pidFile = os.path.join(self.runDir, "gentoo-build-server.pid")
 
@@ -18,8 +19,9 @@ class GbsParam:
         self.clientDataFile = os.path.join(self.varDir, "client.dat")
         self.clientTimeoutInterval = 120                                        # 120 seconds
 
-        self.port = None                # int
-        self.authType = None            # "NONE", "HTPASSWD"
+        self.protocol = None            # "HTTP", "HTTPS", default is "HTTP"
+        self.port = None                # for HTTP, default is 80; for HTTPS, default is 443
+        self.authType = None            # "NONE", "HTPASSWD", default is "NONE"
         self.logLevel = None            # enum
         self.tmpDir = None
         self.httpServer = None
