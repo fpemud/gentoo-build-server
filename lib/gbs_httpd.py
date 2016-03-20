@@ -18,7 +18,7 @@ class GbsHttpDaemon:
 
         self._generateCfgFile(cfgf)
         GbsUtil.mkDirAndClear(self.param.webRootDir)
-        
+
         cmd = ""
         cmd += "/usr/sbin/apache2 "
         cmd += "-d %s " % (self.param.tmpDir)
