@@ -14,9 +14,10 @@ install:
 	find "$(DESTDIR)/$(prefix)/lib/gentoo-build-server" -type f | xargs chmod 644
 	find "$(DESTDIR)/$(prefix)/lib/gentoo-build-server" -type d | xargs chmod 755
 
-	make -C libexec
+	$(CC) $(LDFLAGS) libexec/gentoo-build-server-helper.c $(LIBS) -o libexec/gentoo-build-server-helper
 	install -d -m 0755 "$(DESTDIR)/$(prefix)/libexec"
 	install -m 0755 libexec/gentoo-build-server-helper "$(DESTDIR)/$(prefix)/libexec"
+	rm libexec/gentoo-build-server-helper
 
 	install -d -m 0755 "$(DESTDIR)/$(prefix)/lib/systemd/system"
 	install -m 0644 data/gentoo-build-server.service "$(DESTDIR)/$(prefix)/lib/systemd/system"
