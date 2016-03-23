@@ -214,3 +214,22 @@ class GbsUtil:
             return logging.DEBUG
         else:
             assert False
+
+	@staticmethod
+	def execHelper(*kargs):
+		assert len(kargs) > 1
+	
+		cmd = ""
+		cmd += "/usr/libexec/gentoo-build-server-helper exec"
+		for arg in kargs:
+			cmd += " \"%s\"" % (arg)
+	
+		proc = subprocess.Popen(cmd,
+								shell=True, universal_newlines=True,
+								stdout=subprocess.PIPE,
+								stderr=subprocess.STDOUT)
+		out, err = proc.communicate()
+		if proc.returncode != 0:
+			raise Exception(err)
+	
+		return out

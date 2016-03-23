@@ -11,7 +11,6 @@ class GbsParam:
         self.group = "portage"
 
         self.libDir = "/usr/lib/gentoo-build-server"
-        self.wsgiDir = os.path.join(self.libDir, "wsgi")
         self.runDir = "/run/gentoo-build-server"
         self.varDir = "/var/gentoo-build-server"
         self.logDir = "/var/log/gentoo-build-server"

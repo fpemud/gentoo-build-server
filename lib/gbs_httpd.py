@@ -69,10 +69,10 @@ class GbsHttpDaemon:
         buf += "\n"
         buf += "WSGIDaemonProcess gentoo_build_server\n"
         buf += "WSGIProcessGroup gentoo_build_server\n"
-        buf += "WSGIScriptAlias / %s\n" % (os.path.join(self.param.wsgiDir, "main.wsgi"))
+        buf += "WSGIScriptAlias / %s\n" % (os.path.join(self.param.libDir, "api.wsgi"))
         buf += "\n"
         if self.param.authType == "HTPASSWD":
-            buf += "<Directory %s>\n" % (self.param.wsgiDir)
+            buf += "<Directory %s>\n" % (self.param.libDir)
             buf += "    AuthType Basic\n"
             buf += "    AuthName \"Gentoo Build Server\"\n"
             buf += "    AuthBasicProvider file\n"
