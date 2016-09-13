@@ -21,6 +21,8 @@ class GbsParam:
         self.clientDataFile = os.path.join(self.varDir, "client.dat")
         self.clientTimeoutInterval = 120                                        # 120 seconds
 
+        self.machineList = []
+
         self.protocol = None            # "HTTP", "HTTPS", default is "HTTP"
         self.port = None                # for HTTP, default is 80; for HTTPS, default is 443
         self.authType = None            # "NONE", "HTPASSWD", default is "NONE"
