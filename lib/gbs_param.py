@@ -7,12 +7,13 @@ import os
 class GbsParam:
 
     def __init__(self):
-        self.user = "portage"
-        self.group = "portage"
+        self.user = "root"              # fixme
+        self.group = "root"             # fixme
 
         self.libDir = "/usr/lib/gentoo-build-server"
         self.runDir = "/run/gentoo-build-server"
         self.varDir = "/var/gentoo-build-server"
+        self.cacheDir = "/var/cache/gentoo-build-server"
         self.logDir = "/var/log/gentoo-build-server"
 
         self.pidFile = os.path.join(self.runDir, "gentoo-build-server.pid")
@@ -28,7 +29,6 @@ class GbsParam:
         self.authType = None            # "NONE", "HTPASSWD", default is "NONE"
         self.logLevel = None            # enum
         self.tmpDir = None
-        self.httpServer = None
 
     @property
     def webRootDir(self):

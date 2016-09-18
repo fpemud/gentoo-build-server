@@ -22,14 +22,14 @@ if True:
                            choices=['NONE', 'HTPASSWD'], help="Specify authencation type.")
     argParser.add_argument("--pid-file", dest='pid_file', help="Specify location of a PID file.")
     argParser.add_argument("-d", "--debug-level", dest='debug_level',
-                           choices=['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG'], default="WARNING",
+                           choices=['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG'], default="INFO",
                            help="Set output debug message level")
     parseResult = argParser.parse_args()
 
 
 param = GbsParam()
 try:
-    # fill GbsParam
+    # fill GbsParam according to argument
     if parseResult.protocol is not None:
         param.protocol = parseResult.protocol
     else:
@@ -57,10 +57,8 @@ try:
     GbsUtil.mkDirAndClear(param.webRootDir)
     GbsUtil.chown(param.webRootDir, param.user, param.group)
 
-    # start http server
-    param.httpServer = GbsHttpDaemon(param)
-    proc = param.httpServer.run()
-    proc.wait()
+    # start server
+    GbsDaemon(param).run().wait()
 finally:
     if param.tmpDir is not None and os.path.exists(param.tmpDir):
         shutil.rmtree(param.tmpDir)
