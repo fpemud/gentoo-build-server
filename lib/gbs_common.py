@@ -95,6 +95,21 @@ class GbsCommon:
                     return (m.group(1), m.group(2))
         return None
 
+    @staticmethod
+    def systemMountDisk(param, userName, systemName):
+        dirname = _mnt_dir(param, userName, systemName)
+        os.makedirs(dirname)
+        GbsUtil.shell("/bin/mount %s %s" % (_image_file(param, userName, systemName), dirname))
+        return dirname
+
+    @staticmethod
+    def systemUnmountDisk(param, userName, systemName, mntDir):
+        assert mntDir == _mnt_dir(param, userName, systemName)
+        GbsUtil.shell("/bin/umount %s" % (dirname))
+        os.rmdir(mntDir)
+        userDir = os.path.dirname(mntDir)
+        if os.listdir(userDir) == []:
+            os.rmdir(userDir)
 
 def _image_file(param, userName, systemName):
     return os.path.join(self.param.cacheDir, "%s::%s.disk" % (userName, systemName))
@@ -110,3 +125,8 @@ def _glob_var(param, userName, systemName):
 
 def _glob_cache(param, userName, systemName):
     return os.path.join(self.param.varDir, "%s::%s.*" % (userName, systemName))
+
+def _mnt_dir(param, userName, systemName):
+    return os.path.join(self.tmpDir, userName, systemName)
+
+

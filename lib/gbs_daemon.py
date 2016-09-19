@@ -90,15 +90,16 @@ class GbsDaemon:
             else:
                 msg.set_status_code_full(e.status_code)
 
-    def doGet(self, userName, systemName):
+    def doGet(self, userName, systemName, stageOnly):
         """
         out-obj {
-            "active": bool,           # if this system is running
+            "state": str,             # enum, "idle" or other
+            "stage": int,             # stage number
             "dumpe2fs": str,          # dumpe2fs for the system disk image file
             "rsync-port": int,        # 
             "ssh-port": int,          # 
-            "ftp-port": int,          # optional
             "ssh-public-key": str,    # 
+            "ftp-port": int,          # optional
         }
         """
 
@@ -106,25 +107,42 @@ class GbsDaemon:
             raise GbsBusinessException(404)
 
         obj = self.sysDict.get((userName, systemName))
-        ret = {
-            "active": (obj is not None),
-            "dumpe2fs": GbsCommon.systemDumpDiskInfo(self.param, userName, systemName),
-        }
+
+        if not stageOnly:
+            if obj is not None:
+                ret["state"] = obj.state
+            else:
+                ret["state"] = "idle"
+
+        if obj is not None:
+            ret["stage"] = obj.stage
+
+        if not stageOnly:
+            ret["dumpe2fs"] = GbsCommon.systemDumpDiskInfo(self.param, userName, systemName)
+
         if obj is not None:
             if obj.rsyncPort is not None:
                 ret["rsync-port"] = obj.rsyncPort
+
+        if obj is not None:
             if obj.sshPort is not None:
+                assert obj.sshPuKey is not None
                 ret["ssh-port"] = obj.sshPort
+                ret["ssh-public-key"] = obj.sshPubKey
+
+        if obj is not None:
             if obj.ftpPort is not None:
                 ret["ftp-port"] = obj.ftpPort
-            if obj.sshPubKey is not None:
-                ret["ssh-public-key"] = obj.sshPubKey
+
         return json.dumps(ret)
 
     def doPut(self, userName, systemName, clientArgs):
         """
         in-obj {
-            "state": str,      # enum: "idle", "emerge+sync", "emerge+binpkg", "fpemud-refsystem-update"
+            "state": str,
+        }
+        in-obj {
+            "stage": int,
         }
         """
 
@@ -136,18 +154,29 @@ class GbsDaemon:
             if mode == "idle":
                 obj = self.sysDict.get((userName, systemName))
                 if obj is not None:
-                    self.closeSysObj(obj)
+                    self.sysObjClose(obj)
                     del self.sysDict[(userName, systemName)]
                 else:
                     pass
             else:
                 if (userName, systemName) not in self.sysDict:
-                    obj = GbsSystem()
-                    self.openSysObj(obj)
-                    self.sysDict[(userName, systemName)] = obj
+                    self.sysDict[(userName, systemName)] = self.sysObjOpen(userName, systemName, mode)
                 else:
                     raise GbsBusinessException(500)                     # fixme
-                     
+
+        stage = clientArgs.get("stage")
+        if stage is not None:
+            try:
+                stage = int(stage)
+            except:
+                raise GbsBusinessException(500)                     # fixme
+            obj = self.sysDict.get((userName, systemName))
+            if obj is None:
+                raise GbsBusinessException(500)                     # fixme
+            if stage != obj.stage + 1:
+                raise GbsBusinessException(500)                     # fixme
+            self.sysObjNextStage(obj)
+
     def doDelete(self, userName, systemName):
         if (userName, systemName) in self.sysDict:
             raise GbsBusinessException(500)                     # fixme
@@ -155,16 +184,25 @@ class GbsDaemon:
             raise GbsBusinessException(404)
         GbsCommon.removeSystem(userName, systemName)
 
-    def openSysObj(self, sysObj):
-        sysObj.mntDir = os.path.join(self.tmpDir, userName, systemName)
-        os.makedirs(sysObj.mntDir)
+    def sysObjOpen(self, userName, systemName, state):
+        sysObj.userName = userName
+        sysObj.systemName = systemName
+        sysObj.state = state
+        sysObj.stage = 0
+        sysObj.mntDir = GbsCommon.systemMountDisk(self.param, sysObj.userName, sysObj.systemName)
 
 
+        return sysObj
 
-
-
-    def closeSysObj(self, sysObj):
+    def sysObjClose(self, sysObj):
         pass
+
+    def sysObjNextStage(self, sysObj):
+        if sysObj.stage == 0:
+        
+        else:
+
+        sysObj.stage += 1
 
 
 class GbsBusinessException(Exception):
@@ -173,15 +211,24 @@ class GbsBusinessException(Exception):
         self.reason_phrase = reason_phrase
 
 
-class GbsPluginModeException(Exception):
-    pass
-
-
 class GbsSystem:
 
     def __init__(self):
+        self.userName = None
+        self.systemName = None
+        self.state = None
+        self.stage = None
         self.mntDir = None
         self.rsyncPort = None
         self.sshPort = None
         self.ftpPort = None
         self.sshPubKey = None
+
+
+class GbsPluginApi:
+
+    class GbsPluginModeException(Exception):
+        pass
+
+    def __init__(self, parent):
+        self.parent = parent

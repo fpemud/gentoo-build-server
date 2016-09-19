@@ -8,13 +8,5 @@ class PluginObject:
             raise GbsPluginModeException()
         self.mode = mode
 
-    def addtionalSyncUp(self):
-        return dict()
-
-    def addtionalSyncDown(self):
-        return dict()
-
-    def addtionalSyncDownNoDelete(self):
-        return dict()
-
-    def 
+    def stageHandler(self, stage):
+        pass
