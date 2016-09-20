@@ -220,7 +220,7 @@ class GbsUtil:
 		assert len(kargs) > 1
 	
 		cmd = ""
-		cmd += "/usr/libexec/gentoo-build-server-helper exec"
+		cmd += "/usr/libexec/sync-up-daemon-helper exec"
 		for arg in kargs:
 			cmd += " \"%s\"" % (arg)
 	

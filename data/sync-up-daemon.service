@@ -4,8 +4,8 @@ After=network.target
 
 [Service]
 Type=fork
-PIDFile=/run/gentoo-build-server/gentoo-build-server.pid
-ExecStart=/usr/sbin/gentoo-build-server
+PIDFile=/run/sync-up-daemon/sync-up-daemon.pid
+ExecStart=/usr/sbin/sync-up-daemon
 ExecReload=/bin/kill -HUP $MAINPID
 User=portage
 Group=portage
