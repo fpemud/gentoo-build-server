@@ -1,52 +1,63 @@
 #!/usr/bin/python3
 # -*- coding: utf-8; tab-width: 4; indent-tabs-mode: t -*-
 
+class GbsSystem:
+
+    def __init__(self):
+        self.userName = None
+        self.systemName = None
+        self.state = None
+        self.stage = None
+        self.mntDir = None
+        self.rsyncPort = None
+        self.sshPort = None
+        self.ftpPort = None
+        self.sshPubKey = None
+
+
+class GbsPluginApi:
+
+    class GbsPluginModeException(Exception):
+        pass
+
+    def __init__(self, parent):
+        self.parent = parent
+
+
 class GbsCommon:
 
     @staticmethod
-    def genOrLoadKey(self, ktype):
-        kf = os.path.join(self.param.varDir, "host_%s_key" % (ktype))
+    def findOrCreateSystem(param, pubkey):
+        # find system
+        for fn in os.listdir(self.param.cacheDir):
+            dirname = os.path.join(self.param.cacheDir, fn)
+            with open(os.path.join(dirname, "pubkey")) as f:
+                if pubkey == f.read():
+                    return fn
 
-        while os.path.exists(kf):
-            if ktype == "dsa":
-                host_key = paramiko.dsskey.DSSKey.from_private_key_file(kf)
-                if host_key.get_bits() != self.param.dsa_bits:
-                    break
-            elif ktype == "rsa":
-                host_key = paramiko.rsakey.RSAKey.from_private_key_file(kf)
-                if host_key.get_bits() != self.param.rsa_bits:
-                    break
-            elif ktype == "ecdsa":
-                host_key = paramiko.ecdsakey.ECDSAKey.from_private_key_file(kf)
-                if host_key.get_bits() != self.param.ecdsa_bits:
-                    break
-            else:
-                assert False
-            logging.info('%s host key loaded from \"%s\".' % (ktype.upper(), kf))
-            return host_key
+        # create new system
+        uuid = uuid.UUID().hex
+        dirname = os.path.join(self.param.cacheDir, uuid)
+        os.makedirs(dirname)
 
-        if ktype == "dsa":
-            host_key = paramiko.DSSKey.generate(bits=self.param.dsa_bits)
-        elif ktype == "rsa":
-            host_key = paramiko.RSAKey.generate(bits=self.param.rsa_bits)
-        elif ktype == "ecdsa":
-            host_key = paramiko.ECDSAKey.generate()
-        else:
-            assert False
-        host_key.write_private_key_file(kf)
-        os.chmod(kf, 0o600)
-        logging.info('%s host key generated and saved into \"%s\".' % (ktype.upper(), kf))
-        return host_key
+        # record public key
+        with open(os.path.join(dirname, "pubkey.pem"), "w") as f:
+            f.write(pubkey)
 
-    @staticmethod
-    def isUserNameValid(userName):
-        # from is_valid_name() in shadow-utils-4.1
-        return re.search("^[a-z_][a-z0-9_-]*$") is not None
+        # create data directory
+        os.mkdir(os.path.join(dirname, "root"))
 
-    @staticmethod
-    def isSystemNameValid(userName):
-        # from RFC1123
-        return re.search("^[a-z0-9][a-z0-9-]*$") is not None
+        return uuid
+
+
+
+
+
+
+
+
+
+
 
     @staticmethod
     def hasSystem(param, userName, systemName):
@@ -111,8 +122,8 @@ class GbsCommon:
         if os.listdir(userDir) == []:
             os.rmdir(userDir)
 
-def _image_file(param, userName, systemName):
-    return os.path.join(self.param.cacheDir, "%s::%s.disk" % (userName, systemName))
+def _image_file(param, uuid):
+    return os.path.join(self.param.cacheDir, uuid, "%s::%s.disk" % (userName, systemName))
 
 
 def _ssh_pubkey_file(param, userName, systemName):

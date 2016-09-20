@@ -17,6 +17,16 @@ from gi.repository import GLib
 class GbsUtil:
 
     @staticmethod
+    def isUserNameValid(userName):
+        # from is_valid_name() in shadow-utils-4.1
+        return re.search("^[a-z_][a-z0-9_-]*$", userName) is not None
+
+    @staticmethod
+    def isHostnameValid(hostname):
+        # from RFC1123
+        return re.search("^[a-z0-9][a-z0-9-]*$", hostname) is not None
+
+    @staticmethod
     def dropPrivileges(uid_name, gid_name):
         os.setgid(grp.getgrnam(gid_name)[2])
         os.setuid(pwd.getpwnam(uid_name)[2])

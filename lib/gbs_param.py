@@ -10,25 +10,20 @@ class GbsParam:
         self.user = "root"              # fixme
         self.group = "root"             # fixme
 
-        self.libDir = "/usr/lib/gentoo-build-server"
-        self.runDir = "/run/gentoo-build-server"
-        self.varDir = "/var/gentoo-build-server"
-        self.cacheDir = "/var/cache/gentoo-build-server"
-        self.logDir = "/var/log/gentoo-build-server"
+        self.libDir = "/usr/lib/sync-up-daemon"
+        self.runDir = "/run/sync-up-daemon"
+        self.varDir = "/var/sync-up-daemon"
+        self.cacheDir = "/var/cache/sync-up-daemon"
+        self.logDir = "/var/log/sync-up-daemon"
 
-        self.pidFile = os.path.join(self.runDir, "gentoo-build-server.pid")
+        self.pidFile = os.path.join(self.runDir, "sync-up-daemon.pid")
 
-        self.clientPasswdFile = os.path.join(self.varDir, "htpasswd")
-        self.clientDataFile = os.path.join(self.varDir, "client.dat")
-        self.clientTimeoutInterval = 120                                        # 120 seconds
+        self.certFile = os.path.join(self.varDir, "cert.pem")
+        self.privkeyFile = os.path.join(self.varDir, "privkey.pem")
 
-        self.machineList = []
-
-        self.protocol = None            # "HTTP", "HTTPS", default is "HTTP"
-        self.port = None                # for HTTP, default is 80; for HTTPS, default is 443
-        self.authType = None            # "NONE", "HTPASSWD", default is "NONE"
         self.logLevel = None            # enum
         self.tmpDir = None
+        self.machineList = []
 
     @property
     def webRootDir(self):
