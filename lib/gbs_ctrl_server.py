@@ -4,9 +4,10 @@
 
 class GbsCtrlServer:
 
-    def __init__(self, param, acceptCallback, requestCallback):
+    def __init__(self, param, connectCallback, disconnectCallback, requestCallback):
         self.param = param
-        self.acceptCallback = acceptCallback
+        self.connectCallback = connectCallback
+        self.disconnectCallback = disconnectCallback
         self.requestCallback = requestCallback
 
         self.serverSocket = None
@@ -14,14 +15,10 @@ class GbsCtrlServer:
         self.handshaker = None
         self.sessionDict = dict()
 
-    def 
-
-
     def start(self):
         self.serverSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.serverSock.bind(('0.0.0.0', port))
         self.serverSock.listen(5)
-        self.serverSock.setblocking(0)
         self.serverSourceId = GLib.io_add_watch(self.serverSock, GLib.IO_IN | _flagError, self._onServerAccept)
         self.handshaker = _HandShaker(self.param.certFile, self.param.privkeyFile, self.param.certFile, self._onHandShakeComplete, self._onHandShakeError)
 
@@ -31,6 +28,7 @@ class GbsCtrlServer:
 
         try:
             new_sock, addr = self.serverSock.accept()
+            new_sock.setblocking(0)
             self.handshaker.addSocket(new_sock, True)
             logging.info("Control Server: Client \"%s\" accepted." % (addr))
             return True
@@ -43,7 +41,9 @@ class GbsCtrlServer:
         obj = GbsCtrlSession()
         obj.recvBuf = ""
         obj.recvSourceId = GLib.io_add_watch(sslSock, GLib.IO_IN | _flagError, self._onRecv)
-        obj.privateData = self.acceptCallback(sslSock.get_peer_certificate().get_pubkey())
+        obj.sendBuf = ""
+        obj.sendSourceId = GLib.io_add_watch(sslSock, GLib.IO_OUT | _flagError, self._onSend)
+        obj.privateData = self.connectCallback(sslSock.get_peer_certificate().get_pubkey())
         self.sessionDict[sslSock] = obj
 
     def _onHandShakeError(self, source, hostname, port):
@@ -59,6 +59,8 @@ class GbsCtrlServer:
         # peer disconnects
         if len(buf) == 0:
             del self.sessionDict[source]
+            self.disconnectCallback(sessObj.privateData)
+            GLib.source_remove(sessObj.sendSourceId)
             GLib.source_remove(sessObj.recvSourceId)
             source.close()
             return False
@@ -76,11 +78,17 @@ class GbsCtrlServer:
 
         return True
 
+    def _onSend(self, source, cb_condition):
+        sessObj = self.sessionDict[source]
+
+
 
 class GbsCtrlSession:
 
     def __init__(self):
         self.recvBuf = None
         self.recvSourceId = None
+        self.sendBuf = None
+        self.sendSourceId = None
         self.privateData = None
 
