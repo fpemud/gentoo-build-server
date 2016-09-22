@@ -230,7 +230,7 @@ class GbsUtil:
 		assert len(kargs) > 1
 	
 		cmd = ""
-		cmd += "/usr/libexec/sync-up-daemon-helper exec"
+		cmd += "/usr/libexec/syncupd-helper exec"
 		for arg in kargs:
 			cmd += " \"%s\"" % (arg)
 	

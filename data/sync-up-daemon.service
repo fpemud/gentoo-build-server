@@ -4,8 +4,8 @@ After=network.target
 
 [Service]
 Type=fork
-PIDFile=/run/sync-up-daemon/sync-up-daemon.pid
-ExecStart=/usr/sbin/sync-up-daemon
+PIDFile=/run/syncupd/syncupd.pid
+ExecStart=/usr/sbin/syncupd
 ExecReload=/bin/kill -HUP $MAINPID
 User=portage
 Group=portage

@@ -3,10 +3,16 @@
 
 class PluginObject:
 
-    def __init__(self, mode):
-        if mode not in ["emerge+sync", "emerge+binpkg"]:
-            raise GbsPluginModeException()
-        self.mode = mode
+    def __init__(self, api):
+        self.api = api
+        self.mode = None
 
-    def stageHandler(self, stage):
+    def initHandler(self, sessObj, requestObj):
+        if "mode" not in requestObj:
+            raise GbsDaemonException("Missing \"mode\" in init command")
+        if requestObj["mode"] not in ["emerge+sync", "emerge+binpkg"]:
+            raise self.api.GbsPluginException("Invalid \"mode\" in init command")
+        self.mode = requestObj["mode"]
+
+    def stageHandler(self, sessObj):
         pass

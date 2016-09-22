@@ -17,7 +17,7 @@ class GbsSystem:
 
 class GbsPluginApi:
 
-    class GbsPluginModeException(Exception):
+    class GbsPluginException(Exception):
         pass
 
     def __init__(self, parent):

@@ -10,13 +10,13 @@ class GbsParam:
         self.user = "root"              # fixme
         self.group = "root"             # fixme
 
-        self.libDir = "/usr/lib/sync-up-daemon"
-        self.runDir = "/run/sync-up-daemon"
-        self.varDir = "/var/sync-up-daemon"
-        self.cacheDir = "/var/cache/sync-up-daemon"
-        self.logDir = "/var/log/sync-up-daemon"
+        self.libDir = "/usr/lib/syncupd"
+        self.runDir = "/run/syncupd"
+        self.varDir = "/var/syncupd"
+        self.cacheDir = "/var/cache/syncupd"
+        self.logDir = "/var/log/syncupd"
 
-        self.pidFile = os.path.join(self.runDir, "sync-up-daemon.pid")
+        self.pidFile = os.path.join(self.runDir, "syncupd.pid")
 
         self.certFile = os.path.join(self.varDir, "cert.pem")
         self.privkeyFile = os.path.join(self.varDir, "privkey.pem")
