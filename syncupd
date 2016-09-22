@@ -6,7 +6,7 @@ import sys
 import shutil
 import tempfile
 import argparse
-sys.path.append('/usr/lib/sync-up-daemon')
+sys.path.append('/usr/lib/syncupd')
 from gbs_util import GbsUtil
 from gbs_param import GbsParam
 from gbs_httpd import GbsHttpDaemon
@@ -52,7 +52,7 @@ try:
     param.logLevel = parseResult.debug_level
 
     # create directories
-    param.tmpDir = tempfile.mkdtemp(prefix="sync-up-daemon-")
+    param.tmpDir = tempfile.mkdtemp(prefix="syncupd-")
     GbsUtil.chown(param.tmpDir, param.user, param.group)
     GbsUtil.mkDirAndClear(param.webRootDir)
     GbsUtil.chown(param.webRootDir, param.user, param.group)

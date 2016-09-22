@@ -14,9 +14,6 @@ class GbsCtrlServer:
         self.handshaker = None
         self.sessionDict = dict()
 
-    def 
-
-
     def start(self):
         self.serverSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.serverSock.bind(('0.0.0.0', port))
