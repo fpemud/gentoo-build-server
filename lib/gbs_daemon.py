@@ -30,16 +30,7 @@ class GbsDaemon:
                 logging.info('Certificate and private key found.')
 
             # start control server
-            self.ctrlServer = GbsCtrlServer(self.param, )   
-
-
-
-            self.serverSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.serverSock.bind(('0.0.0.0', port))
-            self.serverSock.listen(5)
-            self.serverSock.setblocking(0)
-            self.serverSourceId = GLib.io_add_watch(self.serverSock, GLib.IO_IN | _flagError, self._onServerAccept)
-            self.handshaker = _HandShaker(self.param.certFile, self.param.privkeyFile, self.param.certFile, self._onHandShakeComplete, self._onHandShakeError)
+            self.ctrlServer = GbsCtrlServer(self.param, self.onConnect, self.onDisconnect, self.onRequest)
             logging.info('Control server started.')
 
             # start main loop
@@ -100,19 +91,21 @@ class GbsDaemon:
                 self._cmdStage(sessId, sessObj, requestObj)
             elif requestObj["command"] == "quit":
                 self._cmdQuit(sessId, sessObj, requestObj)
-            elif requestObj["command"] == "dumpe2fs":
-                self._cmdQuit(sessId, sessObj, requestObj)
             else:
                 raise GbsDaemonException("Unknown command")
         except GbsDaemonException as e:
             logging.error(e.message + " from client \"%s\"." % (sessObj.uuid))
-            self.ctrlServer.reject(sessId)
+            self.ctrlServer.closeSession(sessId)
 
     def _cmdInit(self, sessId, sessObj, requestObj):
         if True:
             if "cpu-arch" not in requestObj:
                 raise self.api.GbsPluginException("Missing \"cpu-arch\" in init command")
             sessObj.cpuArch = requestObj["cpu-arch"]
+        if True:
+            if "size" not in requestObj:
+                raise self.api.GbsPluginException("Missing \"size\" in init command")
+            sessObj.size = requestObj["size"]
         if True:
             if "plugin" not in requestObj:
                 raise GbsDaemonException("Missing \"plugin\" in init command"")
@@ -134,19 +127,26 @@ class GbsDaemon:
     def _cmdQuit(self, sessId, sessObj, requestObj):
         sessObj.quited = True
 
-    def _cmdDumpe2fs(self, sessId, sessObj, requestObj):
-        GbsCommon.systemDumpDiskInfo(self.param, userName, systemName)
-
 
 class GbsSession:
 
     def __init__(self):
         self.pubkey = None
         self.uuid = None
+        self.diskSize = None            # 
         self.cpuArch = None             # cpu architecture
         self.plugin = None              # plugin object
         self.stage = None               # stage number
         self.quited = None 
+
+
+class GbsPluginApi:
+
+    class GbsPluginException(Exception):
+        pass
+
+    def __init__(self, parent):
+        self.parent = parent
 
 
 

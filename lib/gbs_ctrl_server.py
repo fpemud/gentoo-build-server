@@ -27,7 +27,7 @@ class GbsCtrlServer:
             self._closeCtrlSession(sslSock, sessObj)
         self.serverSock.close()
 
-    def rejectSession(self, sessId):
+    def closeSession(self, sessId):
         for sslSock, sessObj in self.sessionDict.items():
             if sessObj.id == sessId:
                 self._closeCtrlSession(sslSock, sessObj)

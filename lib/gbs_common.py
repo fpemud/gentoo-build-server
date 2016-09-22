@@ -1,28 +1,6 @@
 #!/usr/bin/python3
 # -*- coding: utf-8; tab-width: 4; indent-tabs-mode: t -*-
 
-class GbsSystem:
-
-    def __init__(self):
-        self.userName = None
-        self.systemName = None
-        self.state = None
-        self.stage = None
-        self.mntDir = None
-        self.rsyncPort = None
-        self.sshPort = None
-        self.ftpPort = None
-        self.sshPubKey = None
-
-
-class GbsPluginApi:
-
-    class GbsPluginException(Exception):
-        pass
-
-    def __init__(self, parent):
-        self.parent = parent
-
 
 class GbsCommon:
 
@@ -44,10 +22,21 @@ class GbsCommon:
         with open(os.path.join(dirname, "pubkey.pem"), "w") as f:
             f.write(pubkey)
 
-        # create data directory
+        # generate disk image
+        fn = _image_file(param, uuid)
+        GbsUtil.shell("/bin/dd if=/dev/zero of=%s bs=%d count=%s conv=sparse" % (fn, 1024 * 1024 * 1024, 50))   # allocate 50GB
+        GbsUtil.shell("/sbin/mkfs.ext4 %s" % (fn))
+
+
+
         os.mkdir(os.path.join(dirname, "root"))
 
         return uuid
+
+
+
+
+
 
 
 
@@ -123,7 +112,7 @@ class GbsCommon:
             os.rmdir(userDir)
 
 def _image_file(param, uuid):
-    return os.path.join(self.param.cacheDir, uuid, "%s::%s.disk" % (userName, systemName))
+    return os.path.join(self.param.cacheDir, uuid, "disk.img")
 
 
 def _ssh_pubkey_file(param, userName, systemName):
