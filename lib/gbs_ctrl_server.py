@@ -31,7 +31,6 @@ class GbsCtrlServer:
         for sslSock, sessObj in self.sessionDict.items():
             if sessObj.id == sessId:
                 self._closeCtrlSession(sslSock, sessObj)
-        assert False
 
     def onServerAccept(self, source, cb_condition):
         assert not (cb_condition & _flagError)

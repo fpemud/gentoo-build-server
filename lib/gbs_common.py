@@ -19,22 +19,31 @@ class GbsCommon:
         os.makedirs(dirname)
 
         # record public key
-        with open(os.path.join(dirname, "pubkey.pem"), "w") as f:
+        with open(_ssh_pubkey_file(param, uuid), "w") as f:
             f.write(pubkey)
 
         # generate disk image
         fn = _image_file(param, uuid)
-        GbsUtil.shell("/bin/dd if=/dev/zero of=%s bs=%d count=%s conv=sparse" % (fn, 1024 * 1024 * 1024, 50))   # allocate 50GB
+        GbsUtil.shell("/bin/dd if=/dev/zero of=%s bs=%d count=%s conv=sparse" % (fn, self.param.imageSizeUnit, self.param.defaultImageSize))
         GbsUtil.shell("/sbin/mkfs.ext4 %s" % (fn))
-
-
-
-        os.mkdir(os.path.join(dirname, "root"))
 
         return uuid
 
+    @staticmethod
+    def systemGetDiskSize(param, uuid):
+        sz = os.path.getsize(_image_file(param, uuid))
+        assert sz % self.param.imageSizeUnit == 0
+        return sz / self.param.imageSizeUnit
 
-
+    @staticmethod
+    def systemResizeDisk(param, uuid, newSize):
+        fn = _image_file(param, uuid)
+        sz = os.path.getsize(fn)
+        assert sz % self.param.imageSizeUnit == 0
+        newSize = newSize - sz / self.param.imageSizeUnit
+        if newSize > 0:
+            GbsUtil.shell("/bin/dd if=/dev/zero of=%s bs=%d count=%s conv=sparse,append" % (fn, self.param.imageSizeUnit, newSize)) 
+            GbsUtil.shell("/sbin/resize2fs %s" % (fn))
 
 
 
@@ -111,12 +120,13 @@ class GbsCommon:
         if os.listdir(userDir) == []:
             os.rmdir(userDir)
 
+
 def _image_file(param, uuid):
     return os.path.join(self.param.cacheDir, uuid, "disk.img")
 
 
 def _ssh_pubkey_file(param, userName, systemName):
-    return os.path.join(self.param.varDir, "%s::%s.pub" % (userName, systemName))
+    return os.path.join(self.param.cacheDir, uuid, "pubkey.pem")
 
 
 def _glob_var(param, userName, systemName):
@@ -130,3 +140,4 @@ def _mnt_dir(param, userName, systemName):
     return os.path.join(self.tmpDir, userName, systemName)
 
 
+def _default_image_size():

@@ -21,6 +21,10 @@ class GbsParam:
         self.certFile = os.path.join(self.varDir, "cert.pem")
         self.privkeyFile = os.path.join(self.varDir, "privkey.pem")
 
+        self.imageSizeUnit = 1024 * 1024 * 1024                         # 1GB
+        self.maxImageSize = 500                                         # 500GB
+        self.defaultImageSize = 50                                      # 50GB
+
         self.logLevel = None            # enum
         self.tmpDir = None
         self.machineList = []

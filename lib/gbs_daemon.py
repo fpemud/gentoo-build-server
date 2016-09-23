@@ -75,57 +75,78 @@ class GbsDaemon:
         return sessObj
 
     def onDisconnect(self, sessId, sessObj):
+        sessObj.plugin.disconnectHandler()
         logging.info('Client \"%s\" disconnected.' % (sessObj.uuid))
-        pass
 
     def onRequest(self, sessId, sessObj, requestObj):
+        if sessObj.quited:
+            return
         try:
-            if sessObj.quited:
-                raise GbsDaemonException("Request object received after quit")
             if "command" not in requestObj:
                 raise GbsDaemonException("Missing \"command\" in request object")
 
             if requestObj["command"] == "init":
-                self._cmdInit(sessId, sessObj, requestObj)
+                return self._cmdInit(sessId, sessObj, requestObj)
             elif requestObj["command"] == "stage":
-                self._cmdStage(sessId, sessObj, requestObj)
+                return self._cmdStage(sessId, sessObj, requestObj)
             elif requestObj["command"] == "quit":
-                self._cmdQuit(sessId, sessObj, requestObj)
+                return self._cmdQuit(sessId, sessObj, requestObj)
             else:
                 raise GbsDaemonException("Unknown command")
         except GbsDaemonException as e:
             logging.error(e.message + " from client \"%s\"." % (sessObj.uuid))
+            sessObj.plugin.disconnectHandler()
             self.ctrlServer.closeSession(sessId)
 
     def _cmdInit(self, sessId, sessObj, requestObj):
-        if True:
-            if "cpu-arch" not in requestObj:
-                raise self.api.GbsPluginException("Missing \"cpu-arch\" in init command")
-            sessObj.cpuArch = requestObj["cpu-arch"]
-        if True:
-            if "size" not in requestObj:
-                raise self.api.GbsPluginException("Missing \"size\" in init command")
-            sessObj.size = requestObj["size"]
-        if True:
-            if "plugin" not in requestObj:
-                raise GbsDaemonException("Missing \"plugin\" in init command"")
-            pyfname = requestObj["plugin"].replace("-", "_")
-            exec("import %s" % (pyfname))
-            self.plugin = eval("%s.PluginObject(GbsPluginApi(self))" % (pyfname))
-        if True:
-            sessObj.stage = 0
-        if True:
-            sessObj.plugin.initHandler(sessObj, requestObj)
+        if "cpu-arch" not in requestObj:
+            raise GbsDaemonException("Missing \"cpu-arch\" in init command")
+        sessObj.cpuArch = requestObj["cpu-arch"]
+
+        if "size" not in requestObj:
+            raise GbsDaemonException("Missing \"size\" in init command")
+        if requestObj["size"] > self.param.maxImageSize:
+            raise GbsDaemonException("Value of \"size\" is too large in init command")
+        sessObj.size = requestObj["size"]
+        GbsCommon.systemResizeDisk(self.param, uuid, sessObj.size)
+
+        if "plugin" not in requestObj:
+            raise GbsDaemonException("Missing \"plugin\" in init command"")
+        pyfname = requestObj["plugin"].replace("-", "_")
+        exec("import %s" % (pyfname))
+        self.plugin = eval("%s.PluginObject(GbsPluginApi(self, sessObj))" % (pyfname))
+
+        sessObj.stage = 0
+
+        sessObj.plugin.initHandler(requestObj)
+
+        return { "return": {} }
 
     def _cmdStage(self, sessId, sessObj, requestObj):
-        if sessObj.stage == 0:
-            pass
-        else:
-            sessObj.plugin.stageHandler(sessObj)
         sessObj.stage += 1
+
+        if sessObj.stage == 1:
+            sessObj.rsyncServ = RsyncService()
+            sessObj.rsyncServ.start()
+            return { "return": { "rsync-port": sessObj.rsyncServ.getPort() } }
+
+        if sessObj.stage == 2:
+            sessObj.rsyncServ.stop()
+            del sessObj.rsyncServ
+            return sessObj.plugin.stageHandler()
+
+        if True:
+            return sessObj.plugin.stageHandler()
 
     def _cmdQuit(self, sessId, sessObj, requestObj):
         sessObj.quited = True
+
+        def _temp(self, sessId, sessObj):
+            sessObj.plugin.disconnectHandler()
+            self.ctrlServer.closeSession(sessId)
+        GbsUtil.idleInvoke(_temp, self, sessId, sessObj)
+
+        return { "return": {} }
 
 
 class GbsSession:
@@ -133,299 +154,29 @@ class GbsSession:
     def __init__(self):
         self.pubkey = None
         self.uuid = None
-        self.diskSize = None            # 
+        self.imageSize = None           # 
         self.cpuArch = None             # cpu architecture
         self.plugin = None              # plugin object
         self.stage = None               # stage number
         self.quited = None 
 
 
-class GbsPluginApi:
-
-    class GbsPluginException(Exception):
-        pass
-
-    def __init__(self, parent):
-        self.parent = parent
-
-
-
-
-
-
-
-
-
-
-
-
 class GbsDaemonException(Exception):
     pass
 
 
-
-
-
-
-
-
-
-    def doGet(self, userName, systemName, stageOnly):
-        """
-        out-obj {
-            "state": str,             # enum, "idle" or other
-            "stage": int,             # stage number
-            "dumpe2fs": str,          # dumpe2fs for the system disk image file
-            "rsync-port": int,        # 
-            "ssh-port": int,          # 
-            "ssh-public-key": str,    # 
-            "ftp-port": int,          # optional
-        }
-        """
-
-        if not GbsCommon.hasSystem(userName, systemName):
-            raise GbsBusinessException(404)
-
-        obj = self.sysDict.get((userName, systemName))
-
-        if not stageOnly:
-            if obj is not None:
-                ret["state"] = obj.state
-            else:
-                ret["state"] = "idle"
-
-        if obj is not None:
-            ret["stage"] = obj.stage
-
-        if not stageOnly:
-            ret["dumpe2fs"] = 
-
-        if obj is not None:
-            if obj.rsyncPort is not None:
-                ret["rsync-port"] = obj.rsyncPort
-
-        if obj is not None:
-            if obj.sshPort is not None:
-                assert obj.sshPuKey is not None
-                ret["ssh-port"] = obj.sshPort
-                ret["ssh-public-key"] = obj.sshPubKey
-
-        if obj is not None:
-            if obj.ftpPort is not None:
-                ret["ftp-port"] = obj.ftpPort
-
-        return json.dumps(ret)
-
-    def doPut(self, userName, systemName, clientArgs):
-        """
-        in-obj {
-            "state": str,
-        }
-        in-obj {
-            "stage": int,
-        }
-        """
-
-        if not GbsCommon.hasSystem(userName, systemName):
-            GbsCommon.addSystem(userName, systemName)
-
-        mode = clientArgs.get("state")
-        if mode is not None:
-            if mode == "idle":
-                obj = self.sysDict.get((userName, systemName))
-                if obj is not None:
-                    self.sysObjClose(obj)
-                    del self.sysDict[(userName, systemName)]
-                else:
-                    pass
-            else:
-                if (userName, systemName) not in self.sysDict:
-                    self.sysDict[(userName, systemName)] = self.sysObjOpen(userName, systemName, mode)
-                else:
-                    raise GbsBusinessException(500)                     # fixme
-
-        stage = clientArgs.get("stage")
-        if stage is not None:
-            try:
-                stage = int(stage)
-            except:
-                raise GbsBusinessException(500)                     # fixme
-            obj = self.sysDict.get((userName, systemName))
-            if obj is None:
-                raise GbsBusinessException(500)                     # fixme
-            if stage != obj.stage + 1:
-                raise GbsBusinessException(500)                     # fixme
-            self.sysObjNextStage(obj)
-
-    def doDelete(self, userName, systemName):
-        if (userName, systemName) in self.sysDict:
-            raise GbsBusinessException(500)                     # fixme
-        if not GbsCommon.hasSystem(userName, systemName):
-            raise GbsBusinessException(404)
-        GbsCommon.removeSystem(userName, systemName)
-
-    def sysObjOpen(self, userName, systemName, state):
-        sysObj.userName = userName
-        sysObj.systemName = systemName
-        sysObj.state = state
-        sysObj.stage = 0
-        sysObj.mntDir = GbsCommon.systemMountDisk(self.param, sysObj.userName, sysObj.systemName)
-
-
-        return sysObj
-
-    def sysObjClose(self, sysObj):
-        pass
-
-    def sysObjNextStage(self, sysObj):
-        if sysObj.stage == 0:
-        
-        else:
-
-        sysObj.stage += 1
+class GbsProtocolException(Exception):
+    pass
 
 
 class GbsBusinessException(Exception):
-    def __init__(self, status_code, reason_phrase=None):
-        self.statusCode = statusCode
-        self.reason_phrase = reason_phrase
+    pass
 
 
-class _HandShakerConnInfo:
-    serverSide = None            # bool
-    state = None                # enum
-    sslSock = None                # obj
-    hostname = None                # str
-    port = None                    # int
-    spname = None              ""
-        self.uuid = None
+class GbsPluginApi:
 
+    ProtocolException = GbsProtocolException
+    BusinessException = GbsBusinessException
 
-
-
-
-
-
-    def doGet(self, userName, systemName, stageOnly):
-        """
-        out-obj {
-            "state": str,             # enum, "idle" or other
-            "stage": int,             # stage number
-            "dumpe2fs": str,          # dumpe2fs for the system disk image file
-            "rsync-port": int,        # 
-            "ssh-port": int,          # 
-            "ssh-public-key": str,    # 
-            "ftp-port": int,          # optional
-        }
-        """
-
-        if not GbsCommon.hasSystem(userName, systemName):
-            raise GbsBusinessException(404)
-
-        obj = self.sysDict.get((userName, systemName))
-
-        if not stageOnly:
-            if obj is not None:
-                ret["state"] = obj.state
-            else:
-                ret["state"] = "idle"
-
-        if obj is not None:
-            ret["stage"] = obj.stage
-
-        if not stageOnly:
-            ret["dumpe2fs"] = GbsCommon.systemDumpDiskInfo(self.param, userName, systemName)
-
-        if obj is not None:
-            if obj.rsyncPort is not None:
-                ret["rsync-port"] = obj.rsyncPort
-
-        if obj is not None:
-            if obj.sshPort is not None:
-                assert obj.sshPuKey is not None
-                ret["ssh-port"] = obj.sshPort
-                ret["ssh-public-key"] = obj.sshPubKey
-
-        if obj is not None:
-            if obj.ftpPort is not None:
-                ret["ftp-port"] = obj.ftpPort
-
-        return json.dumps(ret)
-
-    def doPut(self, userName, systemName, clientArgs):
-        """
-        in-obj {
-            "state": str,
-        }
-        in-obj {
-            "stage": int,
-        }
-        """
-
-        if not GbsCommon.hasSystem(userName, systemName):
-            GbsCommon.addSystem(userName, systemName)
-
-        mode = clientArgs.get("state")
-        if mode is not None:
-            if mode == "idle":
-                obj = self.sysDict.get((userName, systemName))
-                if obj is not None:
-                    self.sysObjClose(obj)
-                    del self.sysDict[(userName, systemName)]
-                else:
-                    pass
-            else:
-                if (userName, systemName) not in self.sysDict:
-                    self.sysDict[(userName, systemName)] = self.sysObjOpen(userName, systemName, mode)
-                else:
-                    raise GbsBusinessException(500)                     # fixme
-
-        stage = clientArgs.get("stage")
-        if stage is not None:
-            try:
-                stage = int(stage)
-            except:
-                raise GbsBusinessException(500)                     # fixme
-            obj = self.sysDict.get((userName, systemName))
-            if obj is None:
-                raise GbsBusinessException(500)                     # fixme
-            if stage != obj.stage + 1:
-                raise GbsBusinessException(500)                     # fixme
-            self.sysObjNextStage(obj)
-
-    def doDelete(self, userName, systemName):
-        if (userName, systemName) in self.sysDict:
-            raise GbsBusinessException(500)                     # fixme
-        if not GbsCommon.hasSystem(userName, systemName):
-            raise GbsBusinessException(404)
-        GbsCommon.removeSystem(userName, systemName)
-
-    def sysObjOpen(self, userName, systemName, state):
-        sysObj.userName = userName
-        sysObj.systemName = systemName
-        sysObj.state = state
-        sysObj.stage = 0
-        sysObj.mntDir = GbsCommon.systemMountDisk(self.param, sysObj.userName, sysObj.systemName)
-
-
-        return sysObj
-
-    def sysObjClose(self, sysObj):
-        pass
-
-    def sysObjNextStage(self, sysObj):
-        if sysObj.stage == 0:
-        
-        else:
-
-        sysObj.stage += 1
-
-
-class GbsBusinessException(Exception):
-    def __init__(self, status_code, reason_phrase=None):
-        self.statusCode = statusCode
-        self.reason_phrase = reason_phrase
-
-
-
-
+    def __init__(self, parent):
+        self.parent = parent
