@@ -55,7 +55,7 @@ class GbsDaemon:
         self.mainloop.quit()
         return True
 
-    def _sigHandlerTERM(self, signum)dict:
+    def _sigHandlerTERM(self, signum):
         logging.info("SIGTERM received.")
         self.mainloop.quit()
         return True
@@ -111,7 +111,7 @@ class GbsDaemon:
         GbsCommon.systemResizeDisk(self.param, uuid, sessObj.size)
 
         if "plugin" not in requestObj:
-            raise GbsDaemonException("Missing \"plugin\" in init command"")
+            raise GbsDaemonException("Missing \"plugin\" in init command")
         pyfname = requestObj["plugin"].replace("-", "_")
         exec("import %s" % (pyfname))
         self.plugin = eval("%s.PluginObject(GbsPluginApi(self, sessObj))" % (pyfname))

@@ -1,21 +1,23 @@
 #!/usr/bin/python3
 # -*- coding: utf-8; tab-width: 4; indent-tabs-mode: t -*-
 
+import os
+
 
 class GbsCommon:
 
     @staticmethod
     def findOrCreateSystem(param, pubkey):
         # find system
-        for fn in os.listdir(self.param.cacheDir):
-            dirname = os.path.join(self.param.cacheDir, fn)
+        for fn in os.listdir(param.cacheDir):
+            dirname = os.path.join(param.cacheDir, fn)
             with open(os.path.join(dirname, "pubkey")) as f:
                 if pubkey == f.read():
                     return fn
 
         # create new system
         uuid = uuid.UUID().hex
-        dirname = os.path.join(self.param.cacheDir, uuid)
+        dirname = os.path.join(param.cacheDir, uuid)
         os.makedirs(dirname)
 
         # record public key
@@ -32,15 +34,15 @@ class GbsCommon:
     @staticmethod
     def systemGetDiskSize(param, uuid):
         sz = os.path.getsize(_image_file(param, uuid))
-        assert sz % self.param.imageSizeUnit == 0
-        return sz / self.param.imageSizeUnit
+        assert sz % param.imageSizeUnit == 0
+        return sz / param.imageSizeUnit
 
     @staticmethod
     def systemResizeDisk(param, uuid, newSize):
         fn = _image_file(param, uuid)
         sz = os.path.getsize(fn)
-        assert sz % self.param.imageSizeUnit == 0
-        newSize = newSize - sz / self.param.imageSizeUnit
+        assert sz % param.imageSizeUnit == 0
+        newSize = newSize - sz / param.imageSizeUnit
         if newSize > 0:
             GbsUtil.shell("/bin/dd if=/dev/zero of=%s bs=%d count=%s conv=sparse,append" % (fn, self.param.imageSizeUnit, newSize)) 
             GbsUtil.shell("/sbin/resize2fs %s" % (fn))
@@ -91,13 +93,14 @@ class GbsCommon:
 
     @staticmethod
     def systemIsActive(param, userName, systemName):
+        return False
 
     @staticmethod
     def findSystemBySshPublicKey(param, key):
         for fn in os.listdir(self.param.varDir):
             if not fn.endswith(".pub"):
                 continue
-            with open(os.path.join(self.param.varDir, fn, "r") as f:
+            with open(os.path.join(self.param.varDir, fn, "r")) as f:
                 if f.read() == key:
                     m = re.search("^(.*)::(.*).pub$", fn)
                     assert m is not None
@@ -139,5 +142,5 @@ def _glob_cache(param, userName, systemName):
 def _mnt_dir(param, userName, systemName):
     return os.path.join(self.tmpDir, userName, systemName)
 
-
 def _default_image_size():
+    return 0

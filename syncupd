@@ -9,7 +9,7 @@ import argparse
 sys.path.append('/usr/lib/syncupd')
 from gbs_util import GbsUtil
 from gbs_param import GbsParam
-from gbs_httpd import GbsHttpDaemon
+from gbs_daemon import GbsDaemon
 
 
 # parse parameter
