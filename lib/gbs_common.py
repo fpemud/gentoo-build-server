@@ -2,6 +2,10 @@
 # -*- coding: utf-8; tab-width: 4; indent-tabs-mode: t -*-
 
 import os
+import re
+import uuid
+import glob
+from gbs_util import GbsUtil
 
 
 class GbsCommon:
@@ -16,20 +20,20 @@ class GbsCommon:
                     return fn
 
         # create new system
-        uuid = uuid.UUID().hex
-        dirname = os.path.join(param.cacheDir, uuid)
+        newUuid = uuid.UUID().hex
+        dirname = os.path.join(param.cacheDir, newUuid)
         os.makedirs(dirname)
 
         # record public key
-        with open(_ssh_pubkey_file(param, uuid), "w") as f:
+        with open(_ssh_pubkey_file(param, newUuid), "w") as f:
             f.write(pubkey)
 
         # generate disk image
-        fn = _image_file(param, uuid)
-        GbsUtil.shell("/bin/dd if=/dev/zero of=%s bs=%d count=%s conv=sparse" % (fn, self.param.imageSizeUnit, self.param.defaultImageSize))
+        fn = _image_file(param, newUuid)
+        GbsUtil.shell("/bin/dd if=/dev/zero of=%s bs=%d count=%s conv=sparse" % (fn, param.imageSizeUnit, param.defaultImageSize))
         GbsUtil.shell("/sbin/mkfs.ext4 %s" % (fn))
 
-        return uuid
+        return newUuid
 
     @staticmethod
     def systemGetDiskSize(param, uuid):
@@ -44,20 +48,8 @@ class GbsCommon:
         assert sz % param.imageSizeUnit == 0
         newSize = newSize - sz / param.imageSizeUnit
         if newSize > 0:
-            GbsUtil.shell("/bin/dd if=/dev/zero of=%s bs=%d count=%s conv=sparse,append" % (fn, self.param.imageSizeUnit, newSize)) 
+            GbsUtil.shell("/bin/dd if=/dev/zero of=%s bs=%d count=%s conv=sparse,append" % (fn, param.imageSizeUnit, newSize))
             GbsUtil.shell("/sbin/resize2fs %s" % (fn))
-
-
-
-
-
-
-
-
-
-
-
-
 
     @staticmethod
     def hasSystem(param, userName, systemName):
@@ -97,10 +89,10 @@ class GbsCommon:
 
     @staticmethod
     def findSystemBySshPublicKey(param, key):
-        for fn in os.listdir(self.param.varDir):
+        for fn in os.listdir(param.varDir):
             if not fn.endswith(".pub"):
                 continue
-            with open(os.path.join(self.param.varDir, fn, "r")) as f:
+            with open(os.path.join(param.varDir, fn, "r")) as f:
                 if f.read() == key:
                     m = re.search("^(.*)::(.*).pub$", fn)
                     assert m is not None
@@ -117,7 +109,7 @@ class GbsCommon:
     @staticmethod
     def systemUnmountDisk(param, userName, systemName, mntDir):
         assert mntDir == _mnt_dir(param, userName, systemName)
-        GbsUtil.shell("/bin/umount %s" % (dirname))
+        GbsUtil.shell("/bin/umount %s" % (mntDir))
         os.rmdir(mntDir)
         userDir = os.path.dirname(mntDir)
         if os.listdir(userDir) == []:
@@ -125,22 +117,24 @@ class GbsCommon:
 
 
 def _image_file(param, uuid):
-    return os.path.join(self.param.cacheDir, uuid, "disk.img")
+    return os.path.join(param.cacheDir, uuid, "disk.img")
 
 
 def _ssh_pubkey_file(param, userName, systemName):
-    return os.path.join(self.param.cacheDir, uuid, "pubkey.pem")
+    return os.path.join(param.cacheDir, uuid, "pubkey.pem")
 
 
 def _glob_var(param, userName, systemName):
-    return os.path.join(self.param.varDir, "%s::%s.*" % (userName, systemName))
+    return os.path.join(param.varDir, "%s::%s.*" % (userName, systemName))
 
 
 def _glob_cache(param, userName, systemName):
-    return os.path.join(self.param.varDir, "%s::%s.*" % (userName, systemName))
+    return os.path.join(param.varDir, "%s::%s.*" % (userName, systemName))
+
 
 def _mnt_dir(param, userName, systemName):
-    return os.path.join(self.tmpDir, userName, systemName)
+    return os.path.join(param.tmpDir, userName, systemName)
+
 
 def _default_image_size():
     return 0

@@ -1,6 +1,18 @@
 #!/usr/bin/python3
 # -*- coding: utf-8; tab-width: 4; indent-tabs-mode: t -*-
 
+import os
+import sys
+import signal
+import shutil
+import logging
+from gi.repository import GLib
+from services import RsyncService
+from gbs_util import GbsUtil
+from gbs_common import GbsCommon
+from gbs_ctrl_server import GbsCtrlServer
+
+
 class GbsDaemon:
 
     def __init__(self, param):
@@ -9,7 +21,7 @@ class GbsDaemon:
         self.mainloop = None
 
     def run(self):
-        FrsUtil.mkDirAndClear(self.param.tmpDir)
+        GbsUtil.mkDirAndClear(self.param.tmpDir)
         try:
             logging.getLogger().addHandler(logging.StreamHandler(sys.stderr))
             logging.getLogger().setLevel(GbsUtil.getLoggingLevel(self.param.logLevel))
@@ -108,7 +120,7 @@ class GbsDaemon:
         if requestObj["size"] > self.param.maxImageSize:
             raise GbsDaemonException("Value of \"size\" is too large in init command")
         sessObj.size = requestObj["size"]
-        GbsCommon.systemResizeDisk(self.param, uuid, sessObj.size)
+        GbsCommon.systemResizeDisk(self.param, sessObj.uuid, sessObj.size)
 
         if "plugin" not in requestObj:
             raise GbsDaemonException("Missing \"plugin\" in init command")
@@ -120,7 +132,7 @@ class GbsDaemon:
 
         sessObj.plugin.initHandler(requestObj)
 
-        return { "return": {} }
+        return {"return": {}}
 
     def _cmdStage(self, sessId, sessObj, requestObj):
         sessObj.stage += 1
@@ -128,7 +140,7 @@ class GbsDaemon:
         if sessObj.stage == 1:
             sessObj.rsyncServ = RsyncService()
             sessObj.rsyncServ.start()
-            return { "return": { "rsync-port": sessObj.rsyncServ.getPort() } }
+            return {"return": {"rsync-port": sessObj.rsyncServ.getPort()}}
 
         if sessObj.stage == 2:
             sessObj.rsyncServ.stop()
@@ -146,7 +158,7 @@ class GbsDaemon:
             self.ctrlServer.closeSession(sessId)
         GbsUtil.idleInvoke(_temp, self, sessId, sessObj)
 
-        return { "return": {} }
+        return {"return": {}}
 
 
 class GbsSession:
@@ -154,11 +166,11 @@ class GbsSession:
     def __init__(self):
         self.pubkey = None
         self.uuid = None
-        self.imageSize = None           # 
+        self.imageSize = None           #
         self.cpuArch = None             # cpu architecture
         self.plugin = None              # plugin object
         self.stage = None               # stage number
-        self.quited = None 
+        self.quited = None
 
 
 class GbsDaemonException(Exception):

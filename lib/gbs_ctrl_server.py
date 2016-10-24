@@ -1,6 +1,13 @@
 #!/usr/bin/python3
 # -*- coding: utf-8; tab-width: 4; indent-tabs-mode: t -*-
 
+import json
+import socket
+import logging
+from openssl import SSL
+from gi.repository import GLib
+from gbs_util import GbsUtil
+
 
 class GbsCtrlServer:
 
@@ -17,7 +24,7 @@ class GbsCtrlServer:
 
     def start(self):
         self.serverSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.serverSock.bind(('0.0.0.0', port))
+        self.serverSock.bind(('0.0.0.0', self.param.port))
         self.serverSock.listen(5)
         self.serverSourceId = GLib.io_add_watch(self.serverSock, GLib.IO_IN | _flagError, self.onServerAccept)
         self.handshaker = _HandShaker(self.param.certFile, self.param.privkeyFile, self.param.certFile, self.onHandShakeComplete, self._onHandShakeError)
@@ -79,18 +86,18 @@ class GbsCtrlServer:
         i = sessObj.recvBuf.find("\n")
         if i >= 0:
             requestObj = json.loads(sessObj.recvBuf[:i])
-            sessObj.recvBuf = sessObj.recvBuf[i+1:]
+            sessObj.recvBuf = sessObj.recvBuf[i + 1:]
             responseObj = self.requestCallback(sessObj.id, sessObj.privateData, requestObj)
             sessObj.sendBuf += json.dumps(responseObj)
             i = source.send(sessObj.sendBuf)
-            sessObj.sendBuf = sessObj.sendBuf[i+1:]
+            sessObj.sendBuf = sessObj.sendBuf[i + 1:]
 
         return True
 
     def _onSend(self, source, cb_condition):
         sessObj = self.sessionDict[source]
         i = source.send(sessObj.sendBuf)
-        sessObj.sendBuf = sessObj.sendBuf[i+1:]
+        sessObj.sendBuf = sessObj.sendBuf[i + 1:]
         return True
 
     def _getCtrlSessionObjId(self):
@@ -157,7 +164,7 @@ class _HandShaker:
         try:
             # check error
             if cb_condition & _flagError:
-                raise _ConnException("Socket error, %s" % (SnUtil.cbConditionToStr(cb_condition)))
+                raise _ConnException("Socket error, %s" % (GbsUtil.cbConditionToStr(cb_condition)))
 
             # HANDSHAKE_NONE
             if info.state == _HandShaker.HANDSHAKE_NONE:
@@ -195,7 +202,7 @@ class _HandShaker:
             # HANDSHAKE_COMPLETE
             if info.state == _HandShaker.HANDSHAKE_COMPLETE:
                 # check peer name
-                peerName = SnUtil.getSslSocketPeerName(info.sslSock)
+                peerName = GbsUtil.getSslSocketPeerName(info.sslSock)
                 if info.serverSide:
                     if peerName is None:
                         raise _ConnException("Hostname incorrect, %s, %s" % (_handshake_info_to_str(info), peerName))
@@ -241,6 +248,15 @@ class _ConnException(Exception):
             self.hasExcObj = True
             self.excName = excObj.__class__
             self.excMessage = excObj.message
+
+
+class _HandShakerConnInfo:
+    serverSide = None            # bool
+    state = None                 # enum
+    sslSock = None               # obj
+    hostname = None              # str
+    port = None                  # int
+    spname = None                # str
 
 
 def _handshake_state_to_str(handshake_state):

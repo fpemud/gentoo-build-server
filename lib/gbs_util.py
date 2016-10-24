@@ -2,6 +2,7 @@
 # -*- coding: utf-8; tab-width: 4; indent-tabs-mode: t -*-
 
 import os
+import re
 import pwd
 import grp
 import logging
@@ -30,7 +31,7 @@ class GbsUtil:
     def dropPrivileges(uid_name, gid_name):
         os.setgid(grp.getgrnam(gid_name)[2])
         os.setuid(pwd.getpwnam(uid_name)[2])
-        #os.umask(077)
+        # os.umask(077)
 
     @staticmethod
     def chown(filename, uid_name, gid_name):
@@ -232,21 +233,21 @@ class GbsUtil:
         else:
             assert False
 
-	@staticmethod
-	def execHelper(*kargs):
-		assert len(kargs) > 1
-	
-		cmd = ""
-		cmd += "/usr/libexec/syncupd-helper exec"
-		for arg in kargs:
-			cmd += " \"%s\"" % (arg)
-	
-		proc = subprocess.Popen(cmd,
-								shell=True, universal_newlines=True,
-								stdout=subprocess.PIPE,
-								stderr=subprocess.STDOUT)
-		out, err = proc.communicate()
-		if proc.returncode != 0:
-			raise Exception(err)
-	
-		return out
+    @staticmethod
+    def execHelper(*kargs):
+        assert len(kargs) > 1
+
+        cmd = ""
+        cmd += "/usr/libexec/syncupd-helper exec"
+        for arg in kargs:
+            cmd += " \"%s\"" % (arg)
+
+        proc = subprocess.Popen(cmd,
+                                shell=True, universal_newlines=True,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT)
+        out, err = proc.communicate()
+        if proc.returncode != 0:
+            raise Exception(err)
+
+        return out
