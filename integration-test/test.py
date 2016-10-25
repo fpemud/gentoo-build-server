@@ -16,7 +16,7 @@ class Test_Init(unittest.TestCase):
         self.client.connect(2108)
 
     def runTest(self):
-        obj = client.cmdInit("x86", 10, "gentoo")
+        obj = self.client.cmdInit("x86", 10, "gentoo")
         self.assertEqual(obj["return"], "")
 
     def tearDown(self):

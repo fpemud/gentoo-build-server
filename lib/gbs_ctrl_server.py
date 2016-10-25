@@ -27,7 +27,7 @@ class GbsCtrlServer:
         self.serverSock.bind(('0.0.0.0', self.param.ctrlPort))
         self.serverSock.listen(5)
         self.serverSourceId = GLib.io_add_watch(self.serverSock, GLib.IO_IN | _flagError, self.onServerAccept)
-        self.handshaker = _HandShaker(self.param.certFile, self.param.privkeyFile, self.param.certFile, self.onHandShakeComplete, self._onHandShakeError)
+        self.handshaker = _HandShaker(self.param.certFile, self.param.privkeyFile, self.onHandShakeComplete, self._onHandShakeError)
 
     def stop(self):
         for sslSock, sessObj in self.sessionDict.items():
@@ -47,7 +47,7 @@ class GbsCtrlServer:
             new_sock, addr = self.serverSock.accept()
             new_sock.setblocking(0)
             self.handshaker.addSocket(new_sock, True)
-            logging.info("Control Server: Client \"%s\" accepted." % (addr))
+            logging.info("Control Server: Client \"%s\" accepted." % (str(addr)))
             return True
         except socket.error as e:
             logging.error("Control Server: Client accept failed, %s, %s", e.__class__, e)
@@ -132,10 +132,9 @@ class _HandShaker:
     HANDSHAKE_WANT_WRITE = 2
     HANDSHAKE_COMPLETE = 3
 
-    def __init__(self, certFile, privkeyFile, caCertFile, handShakeCompleteFunc, handShakeErrorFunc):
+    def __init__(self, certFile, privkeyFile, handShakeCompleteFunc, handShakeErrorFunc):
         self.certFile = certFile
         self.privkeyFile = privkeyFile
-        self.caCertFile = caCertFile
         self.handShakeCompleteFunc = handShakeCompleteFunc
         self.handShakeErrorFunc = handShakeErrorFunc
         self.sockDict = dict()
@@ -176,7 +175,6 @@ class _HandShaker:
 #                ctx.set_mode(SSL.MODE_ENABLE_PARTIAL_WRITE)                    # fixme
                 ctx.use_privatekey_file(self.privkeyFile)
                 ctx.use_certificate_file(self.certFile)
-                ctx.load_verify_locations(self.caCertFile)
 
                 info.spname = str(source.getpeername())
                 info.sslSock = SSL.Connection(ctx, source)
