@@ -1,5 +1,0 @@
-use "./test.py" to run standard testcases.
-
-use "./test-long.py" to run testcases with long delay.
-
-use "sudo ./env-reset.py" to clean up if any error occurs.
