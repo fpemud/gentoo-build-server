@@ -7,7 +7,7 @@ import signal
 import shutil
 import logging
 from gi.repository import GLib
-from services import RsyncService
+from services.rsyncd import RsyncService
 from gbs_util import GbsUtil
 from gbs_common import GbsCommon
 from gbs_ctrl_server import GbsCtrlServer
@@ -22,6 +22,7 @@ class GbsDaemon:
 
     def run(self):
         GbsUtil.mkDirAndClear(self.param.tmpDir)
+        GbsUtil.mkDirAndClear(self.param.runDir)
         try:
             logging.getLogger().addHandler(logging.StreamHandler(sys.stderr))
             logging.getLogger().setLevel(GbsUtil.getLoggingLevel(self.param.logLevel))
@@ -34,15 +35,13 @@ class GbsDaemon:
             with open(self.param.pidFile, "w") as f:
                 f.write(str(os.getpid()))
 
-            # generate certificate and private key
+            # check certificate and private key
             if not os.path.exists(self.param.certFile) or not os.path.exists(self.param.privkeyFile):
-                GbsUtil.shell("/usr/bin/openssl req -new -x509 -key %s -out %s -days 36500" % (self.param.certFile, self.param.privkeyFile))
-                logging.info('Certificate and private key generated.')
-            else:
-                logging.info('Certificate and private key found.')
+                raise GbsDaemonException("Certificate and private key not found")
 
             # start control server
             self.ctrlServer = GbsCtrlServer(self.param, self.onConnect, self.onDisconnect, self.onRequest)
+            self.ctrlServer.start()
             logging.info('Control server started.')
 
             # start main loop
@@ -54,12 +53,11 @@ class GbsDaemon:
             self.mainloop.run()
             logging.info("Mainloop exits.")
         finally:
-            if self.soupServer is not None:
-                self.serverSock.disconnect()
-            for obj in self.sysDict.values():
-                self.closeSys(obj)
+            if self.ctrlServer is not None:
+                self.ctrlServer.stop()
             logging.shutdown()
             shutil.rmtree(self.param.runDir)
+            shutil.rmtree(self.param.tmpDir)
             logging.info("Program exits.")
 
     def _sigHandlerINT(self, signum):

@@ -5,14 +5,13 @@ import os
 import re
 import pwd
 import grp
+import random
 import logging
 import shutil
 import subprocess
 import socket
+from OpenSSL import crypto
 from gi.repository import GLib
-# from pyftpdlib.authorizers import DummyAuthorizer
-# from pyftpdlib.handlers import FTPHandler
-# from pyftpdlib.servers import FTPServer
 
 
 class GbsUtil:
@@ -251,3 +250,31 @@ class GbsUtil:
             raise Exception(err)
 
         return out
+
+    @staticmethod
+    def genSelfSignedCertAndKey(cn, keysize):
+        k = crypto.PKey()
+        k.generate_key(crypto.TYPE_RSA, keysize)
+
+        cert = crypto.X509()
+        cert.get_subject().CN = cn
+        cert.set_serial_number(random.randint(0, 65535))
+        cert.gmtime_adj_notBefore(100 * 365 * 24 * 60 * 60 * -1)
+        cert.gmtime_adj_notAfter(100 * 365 * 24 * 60 * 60)
+        cert.set_issuer(cert.get_subject())
+        cert.set_pubkey(k)
+        cert.sign(k, 'sha1')
+
+        return (cert, k)
+
+    @staticmethod
+    def dumpCertAndKey(cert, key, certFile, keyFile):
+        with open(certFile, "wb") as f:
+            buf = crypto.dump_certificate(crypto.FILETYPE_PEM, cert)
+            f.write(buf)
+            os.fchmod(f.fileno(), 0o644)
+
+        with open(keyFile, "wb") as f:
+            buf = crypto.dump_privatekey(crypto.FILETYPE_PEM, key)
+            f.write(buf)
+            os.fchmod(f.fileno(), 0o600)

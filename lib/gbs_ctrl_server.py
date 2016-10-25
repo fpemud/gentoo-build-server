@@ -4,7 +4,7 @@
 import json
 import socket
 import logging
-from openssl import SSL
+from OpenSSL import SSL
 from gi.repository import GLib
 from gbs_util import GbsUtil
 
@@ -24,7 +24,7 @@ class GbsCtrlServer:
 
     def start(self):
         self.serverSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.serverSock.bind(('0.0.0.0', self.param.port))
+        self.serverSock.bind(('0.0.0.0', self.param.ctrlPort))
         self.serverSock.listen(5)
         self.serverSourceId = GLib.io_add_watch(self.serverSock, GLib.IO_IN | _flagError, self.onServerAccept)
         self.handshaker = _HandShaker(self.param.certFile, self.param.privkeyFile, self.param.certFile, self.onHandShakeComplete, self._onHandShakeError)

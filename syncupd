@@ -16,37 +16,18 @@ from gbs_daemon import GbsDaemon
 parseResult = None
 if True:
     argParser = argparse.ArgumentParser()
-    argParser.add_argument("--protocol", choices=['HTTP', 'HTTPS'], help="Specify protocol.")
-    argParser.add_argument("--port", help="Specify listening port.")
-    argParser.add_argument("--auth-type", dest='auth_type',
-                           choices=['NONE', 'HTPASSWD'], help="Specify authencation type.")
+    argParser.add_argument("--port", help="Specify port for control protocol.")
     argParser.add_argument("--pid-file", dest='pid_file', help="Specify location of a PID file.")
     argParser.add_argument("-d", "--debug-level", dest='debug_level',
                            choices=['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG'], default="INFO",
                            help="Set output debug message level")
     parseResult = argParser.parse_args()
 
-
 param = GbsParam()
 try:
     # fill GbsParam according to argument
-    if parseResult.protocol is not None:
-        param.protocol = parseResult.protocol
-    else:
-        param.protocol = "HTTP"
     if parseResult.port is not None:
-        param.port = parseResult.port
-    else:
-        if param.protocol == "HTTP":
-            param.port = 80
-        elif param.protocol == "HTTPS":
-            param.port = 443
-        else:
-            assert False
-    if parseResult.auth_type is not None:
-        param.authType = parseResult.auth_type
-    else:
-        param.authType = "NONE"
+        param.ctrlPort = parseResult.port
     if parseResult.pid_file is not None:
         param.pidFile = parseResult.pid_file
     param.logLevel = parseResult.debug_level
@@ -54,8 +35,6 @@ try:
     # create directories
     param.tmpDir = tempfile.mkdtemp(prefix="syncupd-")
     GbsUtil.chown(param.tmpDir, param.user, param.group)
-    GbsUtil.mkDirAndClear(param.webRootDir)
-    GbsUtil.chown(param.webRootDir, param.user, param.group)
 
     # start server
     GbsDaemon(param).run().wait()

@@ -1,2 +1,38 @@
 #!/usr/bin/python3
 # -*- coding: utf-8; tab-width: 4; indent-tabs-mode: t -*-
+
+import sys
+import argparse
+sys.path.append('/usr/lib/syncupd')
+from gbs_util import GbsUtil
+from gbs_param import GbsParam
+from gbs_cmd import GbsCmd
+
+
+# parse parameter
+parseResult = None
+if True:
+    argParser = argparse.ArgumentParser()
+    subParsers = argParser.add_subparsers()
+
+    apInit = subParsers.add_parser("initialize")
+    apInit.set_defaults(subcmd="initialize")
+
+    apShow = subParsers.add_parser("show-clients")
+    apShow.set_defaults(subcmd="show_clients")
+
+    parseResult = argParser.parse_args()
+
+# execute commands
+param = GbsParam()
+try:
+    if parseResult.subcmd == "initialize":
+        obj = GbsCmd(param)
+        obj.cmdInitialize()
+        sys.exit(0)
+    if parseResult.subcmd == "show-clients":
+        obj = GbsCmd(param)
+        obj.cmdShowClients()
+        sys.exit(0)
+finally:
+    pass
