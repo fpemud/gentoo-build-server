@@ -136,7 +136,8 @@ class GbsDaemon:
         sessObj.stage += 1
 
         if sessObj.stage == 1:
-            sessObj.rsyncServ = RsyncService()
+            mntDir = GbsCommon.systemMountDisk(self.param, sessObj.uuid)
+            sessObj.rsyncServ = RsyncService(self.param, mntDir, True)
             sessObj.rsyncServ.start()
             return {"return": {"rsync-port": sessObj.rsyncServ.getPort()}}
 

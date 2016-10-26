@@ -100,10 +100,10 @@ class GbsCommon:
         return None
 
     @staticmethod
-    def systemMountDisk(param, userName, systemName):
-        dirname = _mnt_dir(param, userName, systemName)
+    def systemMountDisk(param, uuid):
+        dirname = _mnt_dir(param, uuid)
         os.makedirs(dirname)
-        GbsUtil.shell("/bin/mount %s %s" % (_image_file(param, userName, systemName), dirname))
+        GbsUtil.shell("/bin/mount %s %s" % (_image_file(param, uuid), dirname))
         return dirname
 
     @staticmethod
@@ -120,8 +120,12 @@ def _image_file(param, uuid):
     return os.path.join(param.cacheDir, uuid, "disk.img")
 
 
-def _ssh_pubkey_file(param, userName, systemName):
+def _ssh_pubkey_file(param, uuid):
     return os.path.join(param.cacheDir, uuid, "pubkey.pem")
+
+
+def _mnt_dir(param, uuid):
+    return os.path.join(param.tmpDir, uuid, "mnt")
 
 
 def _glob_var(param, userName, systemName):
@@ -131,9 +135,6 @@ def _glob_var(param, userName, systemName):
 def _glob_cache(param, userName, systemName):
     return os.path.join(param.varDir, "%s::%s.*" % (userName, systemName))
 
-
-def _mnt_dir(param, userName, systemName):
-    return os.path.join(param.tmpDir, userName, systemName)
 
 
 def _default_image_size():

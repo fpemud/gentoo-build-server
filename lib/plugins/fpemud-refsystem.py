@@ -18,3 +18,6 @@ class PluginObject:
 
     def stageHandler(self, stage):
         pass
+
+    def disconnectHandler(self):
+        pass
