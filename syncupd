@@ -37,7 +37,7 @@ try:
     GbsUtil.chown(param.tmpDir, param.user, param.group)
 
     # start server
-    GbsDaemon(param).run().wait()
+    GbsDaemon(param).run()
 finally:
     if param.tmpDir is not None and os.path.exists(param.tmpDir):
         shutil.rmtree(param.tmpDir)

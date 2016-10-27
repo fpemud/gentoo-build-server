@@ -20,13 +20,10 @@ class TestClient:
         self.sock.connect(("127.0.0.1", port))
 
         cert, key = _genSelfSignedCertAndKey("test-client", 1024)
-        _dumpCertAndKey(cert, key, "./cert.pem", "./privkey.pem")
 
         ctx = SSL.Context(SSL.SSLv3_METHOD)
-        #ctx.set_verify(SSL.VERIFY_PEER, _sslVerifyDummy)
-        ctx.use_privatekey_file("./privkey.pem")
-        ctx.use_certificate_file("./cert.pem")
-        ctx.load_verify_locations("./cert.pem")
+        ctx.use_privatekey(key)
+        ctx.use_certificate(cert)
         self.sslSock = SSL.Connection(ctx, self.sock)
         self.sslSock.set_connect_state()
 
@@ -70,26 +67,10 @@ def _genSelfSignedCertAndKey(cn, keysize):
     return (cert, k)
 
 
-def _dumpCertAndKey(cert, key, certFile, keyFile):
-    with open(certFile, "wb") as f:
-        buf = crypto.dump_certificate(crypto.FILETYPE_PEM, cert)
-        f.write(buf)
-        os.fchmod(f.fileno(), 0o644)
-
-    with open(keyFile, "wb") as f:
-        buf = crypto.dump_privatekey(crypto.FILETYPE_PEM, key)
-        f.write(buf)
-        os.fchmod(f.fileno(), 0o600)
-
-
-def _sslVerifyDummy(conn, cert, errnum, depth, ok):
-    return ok
-
-
 def _recvReponseObj(sslSock):
     buf = ""
     while True:
-        buf += self.sslSock.recv(4096)
+        buf += sslSock.recv(4096)
         i = buf.find("\n")
         if i >= 0:
             assert i == len(buf)

@@ -5,6 +5,7 @@ import os
 import re
 import uuid
 import glob
+from OpenSSL import crypto
 from gbs_util import GbsUtil
 
 
@@ -12,20 +13,25 @@ class GbsCommon:
 
     @staticmethod
     def findOrCreateSystem(param, pubkey):
+        pubkey = crypto.dump_publickey(crypto.FILETYPE_PEM, pubkey)
+
+        # ensure cache directory exists
+        if not os.path.exists(param.cacheDir):
+            os.makedirs(param.cacheDir)
+
         # find system
-        for fn in os.listdir(param.cacheDir):
-            dirname = os.path.join(param.cacheDir, fn)
-            with open(os.path.join(dirname, "pubkey")) as f:
+        for oldUuid in os.listdir(param.cacheDir):
+            with open(_ssh_pubkey_file(param, oldUuid), "rb") as f:
                 if pubkey == f.read():
-                    return fn
+                    return oldUuid
 
         # create new system
-        newUuid = uuid.UUID().hex
+        newUuid = uuid.uuid4().hex
         dirname = os.path.join(param.cacheDir, newUuid)
         os.makedirs(dirname)
 
         # record public key
-        with open(_ssh_pubkey_file(param, newUuid), "w") as f:
+        with open(_ssh_pubkey_file(param, newUuid), "wb") as f:
             f.write(pubkey)
 
         # generate disk image

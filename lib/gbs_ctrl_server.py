@@ -46,7 +46,7 @@ class GbsCtrlServer:
         try:
             new_sock, addr = self.serverSock.accept()
             new_sock.setblocking(0)
-            self.handshaker.addSocket(new_sock, True)
+            self.handshaker.addSocket(new_sock)
             logging.info("Control Server: Client \"%s\" accepted." % (str(addr)))
             return True
         except socket.error as e:
@@ -54,12 +54,12 @@ class GbsCtrlServer:
             return True
 
     def onHandShakeComplete(self, source, sslSock, hostname, port):
-        logging.info("Control Server: Client \"%s\" hand shake complete." % (sslSock.getpeername()))
+        logging.info("Control Server: Client \"%s\" hand shake complete." % (str(sslSock.getpeername())))
         obj = GbsCtrlSession()
         obj.id = self._getCtrlSessionObjId()
-        obj.recvBuf = ""
+        obj.recvBuf = b''
         obj.recvSourceId = GLib.io_add_watch(sslSock, GLib.IO_IN | _flagError, self._onRecv)
-        obj.sendBuf = ""
+        obj.sendBuf = b''
         obj.sendSourceId = GLib.io_add_watch(sslSock, GLib.IO_OUT | _flagError, self._onSend)
         obj.privateData = self.connectCallback(sslSock.get_peer_certificate().get_pubkey())
         self.sessionDict[sslSock] = obj
@@ -83,7 +83,7 @@ class GbsCtrlServer:
         sessObj.recvBuf += buf
 
         # we have received a json object, which must be a request
-        i = sessObj.recvBuf.find("\n")
+        i = sessObj.recvBuf.find(b'\n')
         if i >= 0:
             requestObj = json.loads(sessObj.recvBuf[:i])
             sessObj.recvBuf = sessObj.recvBuf[i + 1:]
@@ -144,14 +144,12 @@ class _HandShaker:
             sock.close()
         self.sockDict.clear()
 
-    def addSocket(self, sock, serverSide, hostname=None, port=None):
+    def addSocket(self, sock, hostname=None, port=None):
         info = _HandShakerConnInfo()
-        info.serverSide = serverSide
         info.state = _HandShaker.HANDSHAKE_NONE
         info.sslSock = None
         info.hostname = hostname
         info.port = port
-        info.spname = None                    # value of socket.getpeername()
         self.sockDict[sock] = info
 
         sock.setblocking(0)
@@ -168,20 +166,13 @@ class _HandShaker:
             # HANDSHAKE_NONE
             if info.state == _HandShaker.HANDSHAKE_NONE:
                 ctx = SSL.Context(SSL.SSLv3_METHOD)
-                if info.serverSide:
-                    ctx.set_verify(SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT, _sslVerifyDummy)
-                else:
-                    ctx.set_verify(SSL.VERIFY_PEER, _sslVerifyDummy)
+                ctx.set_verify(SSL.VERIFY_PEER, _sslVerifyDummy)
 #                ctx.set_mode(SSL.MODE_ENABLE_PARTIAL_WRITE)                    # fixme
                 ctx.use_privatekey_file(self.privkeyFile)
                 ctx.use_certificate_file(self.certFile)
 
-                info.spname = str(source.getpeername())
                 info.sslSock = SSL.Connection(ctx, source)
-                if info.serverSide:
-                    info.sslSock.set_accept_state()
-                else:
-                    info.sslSock.set_connect_state()
+                info.sslSock.set_accept_state()
                 info.state = _HandShaker.HANDSHAKE_WANT_WRITE
 
             # HANDSHAKE_WANT_READ & HANDSHAKE_WANT_WRITE
@@ -195,28 +186,19 @@ class _HandShaker:
                 except SSL.WantWriteError:
                     info.state = _HandShaker.HANDSHAKE_WANT_WRITE
                 except SSL.Error as e:
-                    raise _ConnException("Handshake failed, %s" % (_handshake_info_to_str(info)), e)
+                    raise _ConnException("Handshake failed, %s" % (str(info.sslSock.getpeername())), e)
 
             # HANDSHAKE_COMPLETE
             if info.state == _HandShaker.HANDSHAKE_COMPLETE:
-                # check peer name
-                peerName = GbsUtil.getSslSocketPeerName(info.sslSock)
-                if info.serverSide:
-                    if peerName is None:
-                        raise _ConnException("Hostname incorrect, %s, %s" % (_handshake_info_to_str(info), peerName))
-                else:
-                    if peerName is None or peerName != info.hostname:
-                        raise _ConnException("Hostname incorrect, %s, %s" % (_handshake_info_to_str(info), peerName))
-
                 # give socket to handShakeCompleteFunc
                 self.handShakeCompleteFunc(source, self.sockDict[source].sslSock, self.sockDict[source].hostname, self.sockDict[source].port)
                 del self.sockDict[source]
                 return False
         except _ConnException as e:
             if not e.hasExcObj:
-                logging.debug("_HandShaker._onEvent: %s, %s", e.message, _handshake_info_to_str(info))
+                logging.debug("_HandShaker._onEvent: %s, %s", e.message, str(info.sslSock.getpeername()))
             else:
-                logging.debug("_HandShaker._onEvent: %s, %s, %s, %s", e.message, _handshake_info_to_str(info), e.excName, e.excMessage)
+                logging.debug("_HandShaker._onEvent: %s, %s, %s, %s", e.message, str(info.sslSock.getpeername()), e.excName, e.excMessage)
             self.handShakeErrorFunc(source, self.sockDict[source].hostname, self.sockDict[source].port)
             del self.sockDict[source]
             return False
@@ -233,7 +215,7 @@ class _HandShaker:
 
 
 def _sslVerifyDummy(conn, cert, errnum, depth, ok):
-    return ok
+    return True
 
 
 class _ConnException(Exception):
@@ -249,12 +231,10 @@ class _ConnException(Exception):
 
 
 class _HandShakerConnInfo:
-    serverSide = None            # bool
     state = None                 # enum
     sslSock = None               # obj
     hostname = None              # str
     port = None                  # int
-    spname = None                # str
 
 
 def _handshake_state_to_str(handshake_state):
@@ -268,13 +248,6 @@ def _handshake_state_to_str(handshake_state):
         return "COMPLETE"
     else:
         assert False
-
-
-def _handshake_info_to_str(info):
-    if info.serverSide:
-        return info.spname
-    else:
-        return "%s, %d" % (info.hostname, info.port)
 
 
 _flagError = GLib.IO_PRI | GLib.IO_ERR | GLib.IO_HUP | GLib.IO_NVAL
