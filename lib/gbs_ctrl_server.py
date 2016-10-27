@@ -134,9 +134,13 @@ class GbsCtrlSession:
             logging.error("Control Server: " + str(e) + " from client \"UUID:%s\"." % (self.uuid))
         finally:
             if self.plugin is not None:
+                assert self.stage is not None
                 self.plugin.disconnectHandler()
-            if self.stage is not None and self.stage >= 1:
-                GbsCommon.systemUnmountDisk(self.parent.param, self.uuid)
+                if self.stage == 1:
+                    self.rsyncServ.stop()
+                    del self.rsyncServ
+                if self.stage >= 1:
+                    GbsCommon.systemUnmountDisk(self.parent.param, self.uuid)
             del self.parent.sessionDict[self.sslSock]
             self.sslSock.close()
 
@@ -165,14 +169,13 @@ class GbsCtrlSession:
         self.size = requestObj["size"]
         GbsCommon.systemResizeDisk(self.parent.param, self.uuid, self.size)
 
+        self.stage = 0
+
         if "plugin" not in requestObj:
             raise GbsProtocolException("Missing \"plugin\" in init command")
         pyfname = requestObj["plugin"].replace("-", "_")
         exec("import plugins.%s" % (pyfname))
         self.plugin = eval("plugins.%s.PluginObject(GbsPluginApi(self), self)" % (pyfname))
-
-        self.stage = 0
-
         self.plugin.initHandler(requestObj)
 
         return {"return": {}}
