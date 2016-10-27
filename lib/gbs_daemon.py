@@ -74,20 +74,3 @@ class GbsDaemon:
 
 class GbsDaemonException(Exception):
     pass
-
-
-class GbsProtocolException(Exception):
-    pass
-
-
-class GbsBusinessException(Exception):
-    pass
-
-
-class GbsPluginApi:
-
-    ProtocolException = GbsProtocolException
-    BusinessException = GbsBusinessException
-
-    def __init__(self, parent):
-        self.parent = parent

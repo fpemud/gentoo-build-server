@@ -10,6 +10,9 @@ from OpenSSL import SSL
 from gi.repository import GLib
 from gbs_util import GbsUtil
 from gbs_common import GbsCommon
+from gbs_common import GbsPluginApi
+from gbs_common import GbsProtocolException
+from gbs_common import GbsBusinessException
 from services.rsyncd import RsyncService
 
 
@@ -96,10 +99,15 @@ class GbsCtrlSession:
                 readable, writable, exceptional = select.select(inputs, outputs, inputs)
 
                 if len(readable) > 0:
-                    buf = self.sslSock.recv(4096)
-                    if len(buf) == 0:
-                        logging.info("Client \"%s\" disconnects." % (self.uuid))
-                        return
+                    try:
+                        buf = self.sslSock.recv(4096)
+                        if len(buf) == 0:
+                            logging.info("Control Server: Client \"UUID:%s\" disconnects." % (self.uuid))
+                            return
+                    except SSL.SysCallError as e:
+                        if str(e) == "(-1, 'Unexpected EOF')":
+                            logging.info("Control Server: Client \"UUID:%s\" disconnects." % (self.uuid))
+                            return
 
                     self.recvBuf += buf
 
@@ -109,7 +117,7 @@ class GbsCtrlSession:
                         requestObj = json.loads(self.recvBuf[:i].decode("iso8859-1"))
                         self.recvBuf = self.recvBuf[i + 1:]
                         responseObj = self.onRequest(requestObj)    # create response when processing request
-                        self.sendBuf += json.dumps(responseObj).encode("iso8859-1") + "\n"
+                        self.sendBuf += (json.dumps(responseObj) + "\n").encode("iso8859-1")
 
                 if len(writable) > 0:
                     i = self.sslSock.send(self.sendBuf)
@@ -117,8 +125,8 @@ class GbsCtrlSession:
 
                 if len(exceptional) > 0:
                     raise GbsCtrlSessionException("Socket error")
-        except GbsCtrlSessionException as e:
-            logging.error(e.message + " from client \"%s\"." % (self.uuid))
+        except (GbsCtrlSessionException, GbsProtocolException, GbsBusinessException) as e:
+            logging.error("Control Server: " + str(e) + " from client \"UUID:%s\"." % (self.uuid))
         finally:
             if self.plugin is not None:
                 self.plugin.disconnectHandler()
@@ -127,7 +135,7 @@ class GbsCtrlSession:
 
     def onRequest(self, requestObj):
         if "command" not in requestObj:
-            raise GbsCtrlSessionException("Missing \"command\" in request object")
+            raise GbsProtocolException("Missing \"command\" in request object")
 
         if requestObj["command"] == "init":
             return self._cmdInit(requestObj)
@@ -136,25 +144,25 @@ class GbsCtrlSession:
         elif requestObj["command"] == "quitclient":
             return self._cmdQuit(requestObj)
         else:
-            raise GbsCtrlSessionException("Unknown command")
+            raise GbsProtocolException("Unknown command")
 
     def _cmdInit(self, requestObj):
         if "cpu-arch" not in requestObj:
-            raise GbsCtrlSessionException("Missing \"cpu-arch\" in init command")
+            raise GbsProtocolException("Missing \"cpu-arch\" in init command")
         self.cpuArch = requestObj["cpu-arch"]
 
         if "size" not in requestObj:
-            raise GbsCtrlSessionException("Missing \"size\" in init command")
+            raise GbsProtocolException("Missing \"size\" in init command")
         if requestObj["size"] > self.parent.param.maxImageSize:
-            raise GbsCtrlSessionException("Value of \"size\" is too large in init command")
+            raise GbsProtocolException("Value of \"size\" is too large in init command")
         self.size = requestObj["size"]
         GbsCommon.systemResizeDisk(self.parent.param, self.uuid, self.size)
 
         if "plugin" not in requestObj:
-            raise GbsCtrlSessionException("Missing \"plugin\" in init command")
+            raise GbsProtocolException("Missing \"plugin\" in init command")
         pyfname = requestObj["plugin"].replace("-", "_")
         exec("import plugins.%s" % (pyfname))
-        self.plugin = eval("%s.PluginObject(GbsPluginApi(self))" % (pyfname))
+        self.plugin = eval("plugins.%s.PluginObject(GbsPluginApi(self), self)" % (pyfname))
 
         self.stage = 0
 

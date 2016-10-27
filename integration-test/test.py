@@ -17,10 +17,10 @@ class Test_Init(unittest.TestCase):
 
     def runTest(self):
         obj = self.client.cmdInit("x86", 10, "gentoo")
-        self.assertEqual(obj["return"], "")
+        self.assertEqual(obj["return"], {})
 
     def tearDown(self):
-        self.client.disconnect()
+        self.client.dispose()
 
 
 def suite():

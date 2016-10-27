@@ -28,7 +28,7 @@ class TestClient:
         self.sslSock.set_connect_state()
 
     def dispose(self):
-        self.sock.close()
+        self.sslSock.close()
 
     def cmdInit(self, cpuArch, size, plugin):
         requestObj = dict()
@@ -36,6 +36,7 @@ class TestClient:
         requestObj["cpu-arch"] = cpuArch
         requestObj["size"] = size
         requestObj["plugin"] = plugin
+        requestObj["mode"] = "emerge+sync"
         self.sslSock.send(json.dumps(requestObj) + "\n")
         return _recvReponseObj(self.sslSock)
 
@@ -71,5 +72,5 @@ def _recvReponseObj(sslSock):
         buf += sslSock.recv(4096)
         i = buf.find("\n")
         if i >= 0:
-            assert i == len(buf)
+            assert i == len(buf) - 1
             return json.loads(buf[:i])

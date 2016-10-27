@@ -11,9 +11,9 @@ class PluginObject:
 
     def initHandler(self, requestObj):
         if "mode" not in requestObj:
-            raise self.api.GbsPluginException("Missing \"mode\" in init command")
+            raise self.api.ProtocolException("Missing \"mode\" in init command")
         if requestObj["mode"] not in ["fpemud-refsystem-update"]:
-            raise self.api.GbsPluginException("Invalid \"mode\" in init command")
+            raise self.api.ProtocolException("Invalid \"mode\" in init command")
         self.mode = requestObj["mode"]
 
     def stageHandler(self, stage):

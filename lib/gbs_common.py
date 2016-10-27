@@ -9,6 +9,23 @@ from OpenSSL import crypto
 from gbs_util import GbsUtil
 
 
+class GbsProtocolException(Exception):
+    pass
+
+
+class GbsBusinessException(Exception):
+    pass
+
+
+class GbsPluginApi:
+
+    ProtocolException = GbsProtocolException
+    BusinessException = GbsBusinessException
+
+    def __init__(self, parent):
+        self.parent = parent
+
+
 class GbsCommon:
 
     @staticmethod
