@@ -70,6 +70,7 @@ class GbsCtrlSession:
         self.sslSock = sslSock
         self.recvBuf = b''
         self.sendBuf = b''
+        self.bQuit = False
         self.threadObj = threading.Thread(target=self.run)
 
         # business data
@@ -98,7 +99,7 @@ class GbsCtrlSession:
                     outputs = []
                 readable, writable, exceptional = select.select(inputs, outputs, inputs)
 
-                if len(readable) > 0:
+                if len(readable) > 0 and not self.bQuit:
                     try:
                         buf = self.sslSock.recv(4096)
                         if len(buf) == 0:
@@ -108,6 +109,7 @@ class GbsCtrlSession:
                         if str(e) == "(-1, 'Unexpected EOF')":
                             logging.info("Control Server: Client \"UUID:%s\" disconnects." % (self.uuid))
                             return
+                        raise
 
                     self.recvBuf += buf
 
@@ -122,6 +124,9 @@ class GbsCtrlSession:
                 if len(writable) > 0:
                     i = self.sslSock.send(self.sendBuf)
                     self.sendBuf = self.sendBuf[i + 1:]
+                    if self.bQuit and len(self.sendBuf) == 0:
+                        logging.info("Control Server: Client \"UUID:%s\" quits." % (self.uuid))
+                        return
 
                 if len(exceptional) > 0:
                     raise GbsCtrlSessionException("Socket error")
@@ -141,7 +146,7 @@ class GbsCtrlSession:
             return self._cmdInit(requestObj)
         elif requestObj["command"] == "stage":
             return self._cmdStage(requestObj)
-        elif requestObj["command"] == "quitclient":
+        elif requestObj["command"] == "quit":
             return self._cmdQuit(requestObj)
         else:
             raise GbsProtocolException("Unknown command")
@@ -175,7 +180,8 @@ class GbsCtrlSession:
 
         if self.stage == 1:
             mntDir = GbsCommon.systemMountDisk(self.parent.param, self.uuid)
-            self.rsyncServ = RsyncService(self.parent.param, mntDir, True)
+            self.rsyncServ = RsyncService(self.parent.param, self.uuid, self.sslSock.getpeername()[0],
+                                          self.sslSock.get_peer_certificate(), mntDir, True)
             self.rsyncServ.start()
             return {"return": {"rsync-port": self.rsyncServ.getPort()}}
 
@@ -188,7 +194,7 @@ class GbsCtrlSession:
             return self.plugin.stageHandler()
 
     def _cmdQuit(self, requestObj):
-        self.sslSock.shutdown()
+        self.bQuit = True
         return {"return": {}}
 
 

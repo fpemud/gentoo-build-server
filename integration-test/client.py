@@ -41,12 +41,15 @@ class TestClient:
         return _recvReponseObj(self.sslSock)
 
     def cmdStage(self):
-        pass
+        requestObj = dict()
+        requestObj["command"] = "stage"
+        self.sslSock.send(json.dumps(requestObj) + "\n")
+        return _recvReponseObj(self.sslSock)
 
     def cmdQuit(self):
         requestObj = dict()
         requestObj["command"] = "quit"
-        self.sslSock.send(json.dumps(requestObj))
+        self.sslSock.send(json.dumps(requestObj) + "\n")
         return _recvReponseObj(self.sslSock)
 
 
