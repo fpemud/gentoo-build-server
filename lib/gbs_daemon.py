@@ -7,9 +7,7 @@ import signal
 import shutil
 import logging
 from gi.repository import GLib
-from services.rsyncd import RsyncService
 from gbs_util import GbsUtil
-from gbs_common import GbsCommon
 from gbs_ctrl_server import GbsCtrlServer
 
 
@@ -72,104 +70,6 @@ class GbsDaemon:
 
     def _sigHandlerUSR2(self, signum):
         return True
-
-    def onConnect(self, pubkey):
-        sessObj = GbsSession()
-        sessObj.pubkey = pubkey
-        sessObj.uuid = GbsCommon.findOrCreateSystem(self.param, pubkey)
-        sessObj.cpuArch = None
-        sessObj.plugin = None
-        sessObj.stage = None
-        sessObj.quited = False
-        logging.info('Client \"%s\" connected.' % (sessObj.uuid))
-        return sessObj
-
-    def onDisconnect(self, sessId, sessObj):
-        sessObj.plugin.disconnectHandler()
-        logging.info('Client \"%s\" disconnected.' % (sessObj.uuid))
-
-    def onRequest(self, sessId, sessObj, requestObj):
-        if sessObj.quited:
-            return
-        try:
-            if "command" not in requestObj:
-                raise GbsDaemonException("Missing \"command\" in request object")
-
-            if requestObj["command"] == "init":
-                return self._cmdInit(sessId, sessObj, requestObj)
-            elif requestObj["command"] == "stage":
-                return self._cmdStage(sessId, sessObj, requestObj)
-            elif requestObj["command"] == "quit":
-                return self._cmdQuit(sessId, sessObj, requestObj)
-            else:
-                raise GbsDaemonException("Unknown command")
-        except GbsDaemonException as e:
-            logging.error(e.message + " from client \"%s\"." % (sessObj.uuid))
-            sessObj.plugin.disconnectHandler()
-            self.ctrlServer.closeSession(sessId)
-
-    def _cmdInit(self, sessId, sessObj, requestObj):
-        if "cpu-arch" not in requestObj:
-            raise GbsDaemonException("Missing \"cpu-arch\" in init command")
-        sessObj.cpuArch = requestObj["cpu-arch"]
-
-        if "size" not in requestObj:
-            raise GbsDaemonException("Missing \"size\" in init command")
-        if requestObj["size"] > self.param.maxImageSize:
-            raise GbsDaemonException("Value of \"size\" is too large in init command")
-        sessObj.size = requestObj["size"]
-        GbsCommon.systemResizeDisk(self.param, sessObj.uuid, sessObj.size)
-
-        if "plugin" not in requestObj:
-            raise GbsDaemonException("Missing \"plugin\" in init command")
-        pyfname = requestObj["plugin"].replace("-", "_")
-        exec("import %s" % (pyfname))
-        self.plugin = eval("%s.PluginObject(GbsPluginApi(self, sessObj))" % (pyfname))
-
-        sessObj.stage = 0
-
-        sessObj.plugin.initHandler(requestObj)
-
-        return {"return": {}}
-
-    def _cmdStage(self, sessId, sessObj, requestObj):
-        sessObj.stage += 1
-
-        if sessObj.stage == 1:
-            mntDir = GbsCommon.systemMountDisk(self.param, sessObj.uuid)
-            sessObj.rsyncServ = RsyncService(self.param, mntDir, True)
-            sessObj.rsyncServ.start()
-            return {"return": {"rsync-port": sessObj.rsyncServ.getPort()}}
-
-        if sessObj.stage == 2:
-            sessObj.rsyncServ.stop()
-            del sessObj.rsyncServ
-            return sessObj.plugin.stageHandler()
-
-        if True:
-            return sessObj.plugin.stageHandler()
-
-    def _cmdQuit(self, sessId, sessObj, requestObj):
-        sessObj.quited = True
-
-        def _temp(self, sessId, sessObj):
-            sessObj.plugin.disconnectHandler()
-            self.ctrlServer.closeSession(sessId)
-        GbsUtil.idleInvoke(_temp, self, sessId, sessObj)
-
-        return {"return": {}}
-
-
-class GbsSession:
-
-    def __init__(self):
-        self.pubkey = None
-        self.uuid = None
-        self.imageSize = None           #
-        self.cpuArch = None             # cpu architecture
-        self.plugin = None              # plugin object
-        self.stage = None               # stage number
-        self.quited = None
 
 
 class GbsDaemonException(Exception):

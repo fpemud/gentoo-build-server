@@ -3,20 +3,20 @@
 
 import json
 import socket
+import select
 import logging
+import threading
 from OpenSSL import SSL
 from gi.repository import GLib
 from gbs_util import GbsUtil
+from gbs_common import GbsCommon
+from services.rsyncd import RsyncService
 
 
 class GbsCtrlServer:
 
-    def __init__(self, param, connectCallback, disconnectCallback, requestCallback):
+    def __init__(self, param):
         self.param = param
-        self.connectCallback = connectCallback
-        self.disconnectCallback = disconnectCallback
-        self.requestCallback = requestCallback
-
         self.serverSocket = None
         self.serverSocketSourceId = None
         self.handshaker = None
@@ -27,17 +27,14 @@ class GbsCtrlServer:
         self.serverSock.bind(('0.0.0.0', self.param.ctrlPort))
         self.serverSock.listen(5)
         self.serverSourceId = GLib.io_add_watch(self.serverSock, GLib.IO_IN | _flagError, self.onServerAccept)
-        self.handshaker = _HandShaker(self.param.certFile, self.param.privkeyFile, self.onHandShakeComplete, self._onHandShakeError)
+        self.handshaker = _HandShaker(self.param.certFile, self.param.privkeyFile, self.onHandShakeComplete, self.onHandShakeError)
 
     def stop(self):
-        for sslSock, sessObj in self.sessionDict.items():
-            self._closeCtrlSession(sslSock, sessObj)
+        for self in self.sessionDict.values():
+            self.close()
+        for self in self.sessionDict.values():
+            self.waitForCloseToComplete()
         self.serverSock.close()
-
-    def closeSession(self, sessId):
-        for sslSock, sessObj in self.sessionDict.items():
-            if sessObj.id == sessId:
-                self._closeCtrlSession(sslSock, sessObj)
 
     def onServerAccept(self, source, cb_condition):
         assert not (cb_condition & _flagError)
@@ -54,75 +51,136 @@ class GbsCtrlServer:
             return True
 
     def onHandShakeComplete(self, source, sslSock, hostname, port):
-        logging.info("Control Server: Client \"%s\" hand shake complete." % (str(sslSock.getpeername())))
-        obj = GbsCtrlSession()
-        obj.id = self._getCtrlSessionObjId()
-        obj.recvBuf = b''
-        obj.recvSourceId = GLib.io_add_watch(sslSock, GLib.IO_IN | _flagError, self._onRecv)
-        obj.sendBuf = b''
-        obj.sendSourceId = GLib.io_add_watch(sslSock, GLib.IO_OUT | _flagError, self._onSend)
-        obj.privateData = self.connectCallback(sslSock.get_peer_certificate().get_pubkey())
-        self.sessionDict[sslSock] = obj
+        self.sessionDict[sslSock] = GbsCtrlSession(self, sslSock)
+        logging.info("Control Server: Client \"%s\" connected." % (str(sslSock.getpeername())))
 
-    def _onHandShakeError(self, source, hostname, port):
+    def onHandShakeError(self, source, hostname, port):
         logging.error("Control Server: Client \"%s\" hand shake error." % (source))
         source.close()
-
-    def _onRecv(self, source, cb_condition):
-        sessObj = self.sessionDict[source]
-
-        # receive from peer
-        buf = source.recv(4096)
-
-        # peer disconnects
-        if len(buf) == 0:
-            self._closeCtrlSession(source, sessObj)
-            return False
-
-        # save data to receive buffer
-        sessObj.recvBuf += buf
-
-        # we have received a json object, which must be a request
-        i = sessObj.recvBuf.find(b'\n')
-        if i >= 0:
-            requestObj = json.loads(sessObj.recvBuf[:i])
-            sessObj.recvBuf = sessObj.recvBuf[i + 1:]
-            responseObj = self.requestCallback(sessObj.id, sessObj.privateData, requestObj)
-            sessObj.sendBuf += json.dumps(responseObj)
-            i = source.send(sessObj.sendBuf)
-            sessObj.sendBuf = sessObj.sendBuf[i + 1:]
-
-        return True
-
-    def _onSend(self, source, cb_condition):
-        sessObj = self.sessionDict[source]
-        i = source.send(sessObj.sendBuf)
-        sessObj.sendBuf = sessObj.sendBuf[i + 1:]
-        return True
-
-    def _getCtrlSessionObjId(self):
-        id = 0
-        for sessObj in self.sessionDict.values():
-            id = max(sessObj.id, id)
-        return id + 1
-
-    def _closeCtrlSession(self, sslSock, sessObj):
-        del self.sessionDict[sslSock]
-        self.disconnectCallback(sessObj.id, sessObj.privateData)
-        GLib.source_remove(sessObj.sendSourceId)
-        GLib.source_remove(sessObj.recvSourceId)
-        sslSock.close()
 
 
 class GbsCtrlSession:
 
-    def __init__(self):
-        self.id = None
-        self.recvBuf = None
-        self.recvSourceId = None
-        self.sendBuf = None
-        self.sendSourceId = None
-        self.privateData = None
+    def __init__(self, parent, sslSock):
+        self.parent = parent
+        self.sslSock = sslSock
+        self.recvBuf = b''
+        self.sendBuf = b''
+        self.threadObj = threading.Thread(target=self.run)
+
+        # business data
+        self.pubkey = self.sslSock.get_peer_certificate().get_pubkey()
+        self.uuid = GbsCommon.findOrCreateSystem(self.parent.param, self.pubkey)
+        self.cpuArch = None                                                         # cpu architecture
+        self.plugin = None                                                          # plugin object
+        self.stage = None                                                           # stage number
+
+    def close(self):
+        self.sslSock.shutdown()
+
+    def waitForCloseToComplete(self):
+        # this function should be called after close
+        self.threadObj.join()
+
+    def run(self):
+        try:
+            while True:
+                inputs = [self.sslSock]
+                if self.sendBuf == b'':
+                    outputs = []
+                else:
+                    outputs = [self.sslSock]
+                readable, writable, exceptional = select.select(inputs, outputs, inputs)
+
+                if len(readable) > 0:
+                    buf = self.sslSock.recv(4096)
+                    if len(buf) == 0:
+                        raise GbsCtrlSessionException("Disconnects")
+
+                    self.recvBuf += buf
+
+                    # we have received a json object, which must be a request
+                    i = self.recvBuf.find(b'\n')
+                    if i >= 0:
+                        requestObj = json.loads(self.recvBuf[:i])
+                        self.recvBuf = self.recvBuf[i + 1:]
+                        responseObj = self.onRequest(requestObj)    # create response when processing request
+                        self.sendBuf += json.dumps(responseObj)
+
+                if len(writable) > 0:
+                    i = self.sslSock.send(self.sendBuf)
+                    self.sendBuf = self.sendBuf[i + 1:]
+
+                if len(exceptional) > 0:
+                    raise GbsCtrlSessionException("Socket error")
+        except GbsCtrlSessionException as e:
+            logging.error(e.message + " from client \"%s\"." % (self.uuid))
+            if self.plugin is not None:
+                self.plugin.disconnectHandler()
+            del self.parent.sessionDict[self.sslSock]
+            self.sslSock.close()
+
+    def onRequest(self, requestObj):
+        if "command" not in requestObj:
+            raise GbsCtrlSessionException("Missing \"command\" in request object")
+
+        if requestObj["command"] == "init":
+            return self._cmdInit(requestObj)
+        elif requestObj["command"] == "stage":
+            return self._cmdStage(requestObj)
+        elif requestObj["command"] == "quitclient":
+            return self._cmdQuit(requestObj)
+        else:
+            raise GbsCtrlSessionException("Unknown command")
+
+    def _cmdInit(self, requestObj):
+        if "cpu-arch" not in requestObj:
+            raise GbsCtrlSessionException("Missing \"cpu-arch\" in init command")
+        self.cpuArch = requestObj["cpu-arch"]
+
+        if "size" not in requestObj:
+            raise GbsCtrlSessionException("Missing \"size\" in init command")
+        if requestObj["size"] > self.parent.param.maxImageSize:
+            raise GbsCtrlSessionException("Value of \"size\" is too large in init command")
+        self.size = requestObj["size"]
+        GbsCommon.systemResizeDisk(self.parent.param, self.uuid, self.size)
+
+        if "plugin" not in requestObj:
+            raise GbsCtrlSessionException("Missing \"plugin\" in init command")
+        pyfname = requestObj["plugin"].replace("-", "_")
+        exec("import %s" % (pyfname))
+        self.plugin = eval("%s.PluginObject(GbsPluginApi(self))" % (pyfname))
+
+        self.stage = 0
+
+        self.plugin.initHandler(requestObj)
+
+        return {"return": {}}
+
+    def _cmdStage(self, requestObj):
+        self.stage += 1
+
+        if self.stage == 1:
+            mntDir = GbsCommon.systemMountDisk(self.parent.param, self.uuid)
+            self.rsyncServ = RsyncService(self.parent.param, mntDir, True)
+            self.rsyncServ.start()
+            return {"return": {"rsync-port": self.rsyncServ.getPort()}}
+
+        if self.stage == 2:
+            self.rsyncServ.stop()
+            del self.rsyncServ
+            return self.plugin.stageHandler()
+
+        if True:
+            return self.plugin.stageHandler()
+
+    def _cmdQuit(self, requestObj):
+        self.sslSock.shutdown()
+        return {"return": {}}
+
+
+class GbsCtrlSessionException(Exception):
+    pass
 
 
 class _HandShaker:

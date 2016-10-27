@@ -1,6 +1,10 @@
 #!/usr/bin/python3
 # -*- coding: utf-8; tab-width: 4; indent-tabs-mode: t -*-
 
+import os
+from OpenSSL import crypto
+from gbs_util import GbsUtil
+
 
 class RsyncService:
 
@@ -24,7 +28,6 @@ class RsyncService:
         self._genStunnelConf()
 
         self.port = GbsUtil.getFreeTcpPort()
-        
 
     def stop(self):
         os.unlink(self.stunnelCfgFile)

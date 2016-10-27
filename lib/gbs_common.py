@@ -142,6 +142,5 @@ def _glob_cache(param, userName, systemName):
     return os.path.join(param.varDir, "%s::%s.*" % (userName, systemName))
 
 
-
 def _default_image_size():
     return 0
