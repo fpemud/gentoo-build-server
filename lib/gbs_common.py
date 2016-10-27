@@ -36,8 +36,8 @@ class GbsCommon:
 
         # generate disk image
         fn = _image_file(param, newUuid)
-        GbsUtil.shell("/bin/dd if=/dev/zero of=%s bs=%d count=%s conv=sparse" % (fn, param.imageSizeUnit, param.defaultImageSize))
-        GbsUtil.shell("/sbin/mkfs.ext4 %s" % (fn))
+        GbsUtil.shell("/bin/dd if=/dev/zero of=%s bs=%d count=%s conv=sparse" % (fn, param.imageSizeUnit, param.defaultImageSize), "stdout")
+        GbsUtil.shell("/sbin/mkfs.ext4 %s" % (fn), "stdout")
 
         return newUuid
 
@@ -54,8 +54,8 @@ class GbsCommon:
         assert sz % param.imageSizeUnit == 0
         newSize = newSize - sz / param.imageSizeUnit
         if newSize > 0:
-            GbsUtil.shell("/bin/dd if=/dev/zero of=%s bs=%d count=%s conv=sparse,append" % (fn, param.imageSizeUnit, newSize))
-            GbsUtil.shell("/sbin/resize2fs %s" % (fn))
+            GbsUtil.shell("/bin/dd if=/dev/zero of=%s bs=%d count=%s conv=sparse,append" % (fn, param.imageSizeUnit, newSize), "stdout")
+            GbsUtil.shell("/sbin/resize2fs %s" % (fn), "stdout")
 
     @staticmethod
     def hasSystem(param, userName, systemName):

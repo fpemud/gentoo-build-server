@@ -30,10 +30,10 @@ class GbsCtrlServer:
         self.handshaker = _HandShaker(self.param.certFile, self.param.privkeyFile, self.onHandShakeComplete, self.onHandShakeError)
 
     def stop(self):
-        for self in self.sessionDict.values():
-            self.close()
-        for self in self.sessionDict.values():
-            self.waitForCloseToComplete()
+        for sessObj in self.sessionDict.values():
+            sessObj.stop()
+        for sessObj in self.sessionDict.values():
+            sessObj.waitForStop()
         self.serverSock.close()
 
     def onServerAccept(self, source, cb_condition):
@@ -44,18 +44,19 @@ class GbsCtrlServer:
             new_sock, addr = self.serverSock.accept()
             new_sock.setblocking(0)
             self.handshaker.addSocket(new_sock)
-            logging.info("Control Server: Client \"%s\" accepted." % (str(addr)))
+            logging.info("Control Server: Client \"%s\" accepted." % (addr[0]))
             return True
         except socket.error as e:
             logging.error("Control Server: Client accept failed, %s, %s", e.__class__, e)
             return True
 
     def onHandShakeComplete(self, source, sslSock, hostname, port):
-        self.sessionDict[sslSock] = GbsCtrlSession(self, sslSock)
-        logging.info("Control Server: Client \"%s\" connected." % (str(sslSock.getpeername())))
+        sessObj = GbsCtrlSession(self, sslSock)
+        logging.info("Control Server: Client \"%s\" connected, UUID \"%s\"." % (sslSock.getpeername()[0], sessObj.uuid))
+        self.sessionDict[sslSock] = sessObj
 
     def onHandShakeError(self, source, hostname, port):
-        logging.error("Control Server: Client \"%s\" hand shake error." % (source))
+        logging.error("Control Server: Client \"%s\" hand shake error." % (source.getpeername()[0]))
         source.close()
 
 
@@ -75,37 +76,40 @@ class GbsCtrlSession:
         self.plugin = None                                                          # plugin object
         self.stage = None                                                           # stage number
 
-    def close(self):
+        self.threadObj.start()
+
+    def stop(self):
         self.sslSock.shutdown()
 
-    def waitForCloseToComplete(self):
-        # this function should be called after close
+    def waitForStop(self):
+        # this function should be called after stop
         self.threadObj.join()
 
     def run(self):
         try:
             while True:
                 inputs = [self.sslSock]
-                if self.sendBuf == b'':
-                    outputs = []
-                else:
+                if len(self.sendBuf) > 0:
                     outputs = [self.sslSock]
+                else:
+                    outputs = []
                 readable, writable, exceptional = select.select(inputs, outputs, inputs)
 
                 if len(readable) > 0:
                     buf = self.sslSock.recv(4096)
                     if len(buf) == 0:
-                        raise GbsCtrlSessionException("Disconnects")
+                        logging.info("Client \"%s\" disconnects." % (self.uuid))
+                        return
 
                     self.recvBuf += buf
 
                     # we have received a json object, which must be a request
                     i = self.recvBuf.find(b'\n')
                     if i >= 0:
-                        requestObj = json.loads(self.recvBuf[:i])
+                        requestObj = json.loads(self.recvBuf[:i].decode("iso8859-1"))
                         self.recvBuf = self.recvBuf[i + 1:]
                         responseObj = self.onRequest(requestObj)    # create response when processing request
-                        self.sendBuf += json.dumps(responseObj)
+                        self.sendBuf += json.dumps(responseObj).encode("iso8859-1") + "\n"
 
                 if len(writable) > 0:
                     i = self.sslSock.send(self.sendBuf)
@@ -115,6 +119,7 @@ class GbsCtrlSession:
                     raise GbsCtrlSessionException("Socket error")
         except GbsCtrlSessionException as e:
             logging.error(e.message + " from client \"%s\"." % (self.uuid))
+        finally:
             if self.plugin is not None:
                 self.plugin.disconnectHandler()
             del self.parent.sessionDict[self.sslSock]
@@ -148,7 +153,7 @@ class GbsCtrlSession:
         if "plugin" not in requestObj:
             raise GbsCtrlSessionException("Missing \"plugin\" in init command")
         pyfname = requestObj["plugin"].replace("-", "_")
-        exec("import %s" % (pyfname))
+        exec("import plugins.%s" % (pyfname))
         self.plugin = eval("%s.PluginObject(GbsPluginApi(self))" % (pyfname))
 
         self.stage = 0

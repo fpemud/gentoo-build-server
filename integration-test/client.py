@@ -11,7 +11,9 @@ from OpenSSL import SSL
 
 class TestClient:
 
-    def __init__(self):
+    def __init__(self, certFile, keyFile):
+        self.certFile = certFile
+        self.keyFile = keyFile
         self.sock = None
         self.sslSock = None
 
@@ -19,18 +21,14 @@ class TestClient:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect(("127.0.0.1", port))
 
-        cert, key = _genSelfSignedCertAndKey("test-client", 1024)
-
         ctx = SSL.Context(SSL.SSLv3_METHOD)
-        ctx.use_privatekey(key)
-        ctx.use_certificate(cert)
+        ctx.use_privatekey_file(self.keyFile)
+        ctx.use_certificate_file(self.certFile)
         self.sslSock = SSL.Connection(ctx, self.sock)
         self.sslSock.set_connect_state()
 
     def dispose(self):
         self.sock.close()
-        os.unlink("./privkey.pem")
-        os.unlink("./cert.pem")
 
     def cmdInit(self, cpuArch, size, plugin):
         requestObj = dict()
@@ -38,7 +36,7 @@ class TestClient:
         requestObj["cpu-arch"] = cpuArch
         requestObj["size"] = size
         requestObj["plugin"] = plugin
-        self.sslSock.send(json.dumps(requestObj))
+        self.sslSock.send(json.dumps(requestObj) + "\n")
         return _recvReponseObj(self.sslSock)
 
     def cmdStage(self):

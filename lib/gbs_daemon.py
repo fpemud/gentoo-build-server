@@ -38,7 +38,7 @@ class GbsDaemon:
                 raise GbsDaemonException("Certificate and private key not found")
 
             # start control server
-            self.ctrlServer = GbsCtrlServer(self.param, self.onConnect, self.onDisconnect, self.onRequest)
+            self.ctrlServer = GbsCtrlServer(self.param)
             self.ctrlServer.start()
             logging.info('Control server started.')
 

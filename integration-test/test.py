@@ -12,7 +12,7 @@ from client import TestClient
 class Test_Init(unittest.TestCase):
 
     def setUp(self):
-        self.client = TestClient()
+        self.client = TestClient("./cert.pem", "./privkey.pem")
         self.client.connect(2108)
 
     def runTest(self):
