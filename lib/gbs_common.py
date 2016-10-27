@@ -130,13 +130,10 @@ class GbsCommon:
         return dirname
 
     @staticmethod
-    def systemUnmountDisk(param, userName, systemName, mntDir):
-        assert mntDir == _mnt_dir(param, userName, systemName)
-        GbsUtil.shell("/bin/umount %s" % (mntDir))
-        os.rmdir(mntDir)
-        userDir = os.path.dirname(mntDir)
-        if os.listdir(userDir) == []:
-            os.rmdir(userDir)
+    def systemUnmountDisk(param, uuid):
+        dirname = _mnt_dir(param, uuid)
+        GbsUtil.shell("/bin/umount %s" % (dirname))
+        os.rmdir(dirname)
 
 
 def _image_file(param, uuid):

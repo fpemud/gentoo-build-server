@@ -135,6 +135,8 @@ class GbsCtrlSession:
         finally:
             if self.plugin is not None:
                 self.plugin.disconnectHandler()
+            if self.stage is not None and self.stage >= 1:
+                GbsCommon.systemUnmountDisk(self.parent.param, self.uuid)
             del self.parent.sessionDict[self.sslSock]
             self.sslSock.close()
 
