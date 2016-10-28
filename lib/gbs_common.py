@@ -25,7 +25,7 @@ class GbsPluginApi:
     BusinessException = GbsBusinessException
 
     RsyncService = services.rsyncd.RsyncService
-    SshService = services.rsyncd.SshService
+    SshService = services.sshd.SshService
 
     def __init__(self, sessObj):
         self.sessObj = sessObj

@@ -9,18 +9,23 @@ import subprocess
 from OpenSSL import SSL
 
 
+def sendRequestObj(sslSock, requestObj):
+    s = json.dumps(requestObj) + "\n"
+    sslSock.send(s.encode("iso8859-1"))
+
+
 def recvReponseObj(sslSock):
-    buf = ""
+    buf = b""
     while True:
         buf += sslSock.recv(4096)
-        i = buf.find("\n")
+        i = buf.find(b"\n")
         if i >= 0:
             assert i == len(buf) - 1
-            return json.loads(buf[:i])
+            return json.loads(buf[:i].decode("iso8859-1"))
 
 
 def getArch():
-    ret = shell("/usr/bin/uname -m", "stdout")
+    ret = shell("/usr/bin/uname -m", "stdout").decode("utf-8")
     ret = ret.rstrip('\n')
     if ret == "x86_64":
         return "amd64"
@@ -182,14 +187,14 @@ if __name__ == "__main__":
     req["size"] = 10
     req["plugin"] = "gentoo"
     req["mode"] = "emerge+sync"
-    sslSock.send(json.dumps(req) + "\n")
+    sendRequestObj(sslSock, req)
     resp = recvReponseObj(sslSock)
 
     print(">> Sync up.")
 
     req = dict()
     req["command"] = "stage"
-    sslSock.send(json.dumps(req) + "\n")
+    sendRequestObj(sslSock, req)
     resp = recvReponseObj(sslSock)
 
     syncUp(dstIp, resp["return"]["rsync-port"], "./cert.pem", "./privkey.pem")
@@ -198,7 +203,7 @@ if __name__ == "__main__":
 
     req = dict()
     req["command"] = "stage"
-    sslSock.send(json.dumps(req) + "\n")
+    sendRequestObj(sslSock, req)
     resp = recvReponseObj(sslSock)
 
     sshExec(dstIp, resp["return"]["ssh-port"], "./cert.pem", "./privkey.pem", sys.argv[2:])
@@ -207,7 +212,7 @@ if __name__ == "__main__":
 
     req = dict()
     req["command"] = "stage"
-    sslSock.send(json.dumps(req) + "\n")
+    sendRequestObj(sslSock, req)
     resp = recvReponseObj(sslSock)
 
     syncDown(dstIp, resp["return"]["rsync-port"], "./cert.pem", "./privkey.pem")
