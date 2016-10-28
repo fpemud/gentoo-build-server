@@ -7,6 +7,7 @@ import dbus
 import subprocess
 import unittest
 from client import TestClient
+from client import TestRsync
 
 
 class Test_Init(unittest.TestCase):
@@ -41,13 +42,17 @@ class Test_Stage1(unittest.TestCase):
 
     def setUp(self):
         self.client = TestClient("./cert.pem", "./privkey.pem")
+        self.rsync = TestRsync("./cert.pem", "./privkey.pem")
         self.client.connect(2108)
 
     def runTest(self):
         obj = self.client.cmdInit("x86", 10, "gentoo")
         self.assertEqual(obj["return"], {})
+
         obj = self.client.cmdStage()
         self.assertTrue("rsync-port" in obj["return"])
+
+        self.rsync.syncUp(".", "127.0.0.1", obj["return"]["rsync-port"])
 
     def tearDown(self):
         self.client.dispose()

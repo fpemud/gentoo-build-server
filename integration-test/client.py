@@ -4,6 +4,7 @@
 import os
 import socket
 import random
+import subprocess
 import json
 from OpenSSL import crypto
 from OpenSSL import SSL
@@ -38,19 +39,67 @@ class TestClient:
         requestObj["plugin"] = plugin
         requestObj["mode"] = "emerge+sync"
         self.sslSock.send(json.dumps(requestObj) + "\n")
-        return _recvReponseObj(self.sslSock)
+        return self._recvReponseObj(self.sslSock)
 
     def cmdStage(self):
         requestObj = dict()
         requestObj["command"] = "stage"
         self.sslSock.send(json.dumps(requestObj) + "\n")
-        return _recvReponseObj(self.sslSock)
+        return self._recvReponseObj(self.sslSock)
 
     def cmdQuit(self):
         requestObj = dict()
         requestObj["command"] = "quit"
         self.sslSock.send(json.dumps(requestObj) + "\n")
-        return _recvReponseObj(self.sslSock)
+        return self._recvReponseObj(self.sslSock)
+
+    def _recvReponseObj(self, sslSock):
+        buf = ""
+        while True:
+            buf += sslSock.recv(4096)
+            i = buf.find("\n")
+            if i >= 0:
+                assert i == len(buf) - 1
+                return json.loads(buf[:i])
+
+
+class TestRsync:
+
+    def __init__(self, certFile, keyFile):
+        self.certFile = certFile
+        self.keyFile = keyFile
+
+    def syncUp(self, dirname, ip, port):
+        proc = self._runStunnelDaemon(ip, port)
+        self._runRsync(dirname)
+        proc.terminate()
+        proc.wait()
+        os.unlink("./stunnel.conf")
+
+    def _runStunnelDaemon(self, ip, port):
+        buf = ""
+        buf += "cert = %s\n" % (self.certFile)
+        buf += "key = %s\n" % (self.keyFile)
+        buf += "\n"
+        buf += "client = yes\n"
+        buf += "foreground = yes\n"
+        buf += "\n"
+        buf += "[rsync]\n"
+        buf += "accept = 127.0.0.1:874\n"
+        buf += "connect = %s:%d\n" % (ip, port)
+
+        with open("./stunnel.conf", "w") as f:
+            f.write(buf)
+
+        cmd = ""
+        cmd += "/usr/sbin/stunnel ./stunnel.conf >/dev/null 2>&1"
+        proc = subprocess.Popen(cmd, shell=True, universal_newlines=True)
+        return proc
+
+    def _runRsync(self, dirname):
+        cmd = ""
+        cmd += "/usr/bin/rsync -a . rsync://127.0.0.1/main"
+        subprocess.Popen(cmd, shell=True, universal_newlines=True).wait()
 
 
 def _genSelfSignedCertAndKey(cn, keysize):
@@ -68,12 +117,3 @@ def _genSelfSignedCertAndKey(cn, keysize):
 
     return (cert, k)
 
-
-def _recvReponseObj(sslSock):
-    buf = ""
-    while True:
-        buf += sslSock.recv(4096)
-        i = buf.find("\n")
-        if i >= 0:
-            assert i == len(buf) - 1
-            return json.loads(buf[:i])
