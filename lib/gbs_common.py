@@ -7,6 +7,8 @@ import uuid
 import glob
 from OpenSSL import crypto
 from gbs_util import GbsUtil
+import services.rsyncd
+import services.sshd
 
 
 class GbsProtocolException(Exception):
@@ -22,8 +24,27 @@ class GbsPluginApi:
     ProtocolException = GbsProtocolException
     BusinessException = GbsBusinessException
 
-    def __init__(self, parent):
-        self.parent = parent
+    RsyncService = services.rsyncd.RsyncService
+    SshService = services.rsyncd.SshService
+
+    def __init__(self, sessObj):
+        self.sessObj = sessObj
+
+    def prepareRoot(self):
+        GbsUtil.shell("/bin/mount -t proc proc %s" % (os.path.join(self.sessObj.mntDir, "proc")))
+        GbsUtil.shell("/bin/mount -rbind /sys %s" % (os.path.join(self.sessObj.mntDir, "sys")))
+        GbsUtil.shell("/bin/mount --make-rslave %s" % (os.path.join(self.sessObj.mntDir, "sys")))
+        GbsUtil.shell("/bin/mount -rbind /dev %s" % (os.path.join(self.sessObj.mntDir, "dev")))
+        GbsUtil.shell("/bin/mount --make-rslave %s" % (os.path.join(self.sessObj.mntDir, "dev")))
+        GbsUtil.shell("/bin/mount -t tmpfs tmpfs %s -o nosuid,nodev,mode=755" % (os.path.join(self.sessObj.mntDir, "run")))
+        GbsUtil.shell("/bin/mount -t tmpfs tmpfs %s -o nosuid,nodev" % (os.path.join(self.sessObj.mntDir, "tmp")))
+
+    def unPrepareRoot(self):
+        GbsUtil.shell("/bin/umount %s" % (os.path.join(self.sessObj.mntDir, "tmp")))
+        GbsUtil.shell("/bin/umount %s" % (os.path.join(self.sessObj.mntDir, "run")))
+        GbsUtil.shell("/bin/umount %s" % (os.path.join(self.sessObj.mntDir, "dev")))
+        GbsUtil.shell("/bin/umount %s" % (os.path.join(self.sessObj.mntDir, "sys")))
+        GbsUtil.shell("/bin/umount %s" % (os.path.join(self.sessObj.mntDir, "proc")))
 
 
 class GbsCommon:

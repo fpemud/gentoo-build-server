@@ -79,6 +79,7 @@ class GbsCtrlSession:
         self.cpuArch = None                                                         # cpu architecture
         self.plugin = None                                                          # plugin object
         self.stage = None                                                           # stage number
+        self.mntDir = None
 
         self.threadObj.start()
 
@@ -175,7 +176,7 @@ class GbsCtrlSession:
             raise GbsProtocolException("Missing \"plugin\" in init command")
         pyfname = requestObj["plugin"].replace("-", "_")
         exec("import plugins.%s" % (pyfname))
-        self.plugin = eval("plugins.%s.PluginObject(GbsPluginApi(self), self)" % (pyfname))
+        self.plugin = eval("plugins.%s.PluginObject(self.parent.param, GbsPluginApi(self), self)" % (pyfname))
         self.plugin.initHandler(requestObj)
 
         return {"return": {}}
@@ -184,19 +185,20 @@ class GbsCtrlSession:
         self.stage += 1
 
         if self.stage == 1:
-            mntDir = GbsCommon.systemMountDisk(self.parent.param, self.uuid)
+            self.mntDir = GbsCommon.systemMountDisk(self.parent.param, self.uuid)
             self.rsyncServ = RsyncService(self.parent.param, self.uuid, self.sslSock.getpeername()[0],
-                                          self.sslSock.get_peer_certificate(), mntDir, True)
+                                          self.sslSock.get_peer_certificate(), self.mntDir, True)
             self.rsyncServ.start()
             return {"return": {"rsync-port": self.rsyncServ.getPort()}}
 
         if self.stage == 2:
             self.rsyncServ.stop()
             del self.rsyncServ
-            return self.plugin.stageHandler()
+            return self.plugin.stageStartHandler(self.stage)
 
-        if True:
-            return self.plugin.stageHandler()
+        if self.stage > 2:
+            self.plugin.stageEndHandler(self.stage - 1)
+            return self.plugin.stageStartHandler(self.stage)
 
     def _cmdQuit(self, requestObj):
         self.bQuit = True

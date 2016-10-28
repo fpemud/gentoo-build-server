@@ -96,7 +96,6 @@ class RsyncService:
         buf += "[rsync]\n"
         buf += "accept = %d\n" % (self.stunnelPort)
         buf += "connect = 127.0.0.1:%d\n" % (self.rsyncPort)
-
         with open(self.stunnelCfgFile, "w") as f:
             f.write(buf)
 

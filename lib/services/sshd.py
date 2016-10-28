@@ -8,7 +8,7 @@ from gbs_util import GbsUtil
 
 class SshService:
 
-    def __init__(self, param, uuid, srcIp, srcCert, rootDir):
+    def __init__(self, param, uuid, srcIp, srcCert, rootDir, cmdPatternAllowed):
         self.param = param
         self.rootDir = rootDir
 
@@ -18,7 +18,18 @@ class SshService:
     def start(self):
         try:
             self.port = GbsUtil.getFreeTcpPort()
-            self._runDaemon()
+
+            buf = ""
+            buf += "ListenAddress :%d\n" % (self.port)
+            buf += "HostCertificate \"%s\"" % (self.param.certFile)
+            buf += "HostKey \"%s\"" % (self.param.privkeyFile)
+            buf += "ChrootDirectory \"%s\"" % (self.rootDir)
+            with open(self.cfgf, "w") as f:
+                f.write(buf)
+
+            cmd = ""
+            cmd += "/usr/sbin/sshd -D -f \"%s\"" % (self.cfgf)
+            self.proc = subprocess.Popen(cmd, shell=True, universal_newlines=True)
         except:
             self.stop()
             raise
@@ -31,17 +42,3 @@ class SshService:
 
     def getPort(self):
         return self.port
-
-    def _runDaemon(self):
-        buf = ""
-        buf += "ListenAddress :%d\n" % (self.port)
-        buf += "HostCertificate \"%s\"" % (self.param.certFile)
-        buf += "HostKey \"%s\"" % (self.param.privkeyFile)
-        buf += "ChrootDirectory \"%s\"" % (self.rootDir)
-
-        with open(self.cfgf, "w") as f:
-            f.write(buf)
-
-        cmd = ""
-        cmd += "/usr/sbin/sshd -D -f \"%s\"" % (self.cfgf)
-        self.proc = subprocess.Popen(cmd, shell=True, universal_newlines=True)
