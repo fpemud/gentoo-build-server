@@ -7,8 +7,6 @@ Type=fork
 PIDFile=/run/syncupd/syncupd.pid
 ExecStart=/usr/sbin/syncupd
 ExecReload=/bin/kill -HUP $MAINPID
-User=portage
-Group=portage
 
 [Install]
 WantedBy=multi-user.target
