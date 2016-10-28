@@ -29,16 +29,22 @@ class RsyncService:
         self.stunnelProc = None
 
     def start(self):
-        self.rsyncPort = GbsUtil.getFreeTcpPort()
-        self.stunnelPort = GbsUtil.getFreeTcpPort()
-        self.rsyncProc = self._runRsyncDeamon()
-        self.stunnelProc = self._runStunnelDaemon()
+        try:
+            self.rsyncPort = GbsUtil.getFreeTcpPort()
+            self.stunnelPort = GbsUtil.getFreeTcpPort()
+            self.rsyncProc = self._runRsyncDeamon()
+            self.stunnelProc = self._runStunnelDaemon()
+        except:
+            self.stop()
+            raise
 
     def stop(self):
-        self.stunnelProc.terminate()
-        self.stunnelProc.wait()
-        self.rsyncProc.terminate()
-        self.rsyncProc.wait()
+        if self.stunnelProc is not None:
+            self.stunnelProc.terminate()
+            self.stunnelProc.wait()
+        if self.rsyncProc is not None:
+            self.rsyncProc.terminate()
+            self.rsyncProc.wait()
         GbsUtil.forceDelete(self.stunnelRndFile)
         GbsUtil.forceDelete(self.stunnelCfgFile)
         GbsUtil.forceDelete(self.stunnelClientCertFile)

@@ -1,18 +1,47 @@
 #!/usr/bin/python3
 # -*- coding: utf-8; tab-width: 4; indent-tabs-mode: t -*-
 
+import os
+import subprocess
+from gbs_util import GbsUtil
+
 
 class SshService:
 
-    def __init__(self, param, rootDir):
+    def __init__(self, param, uuid, srcIp, srcCert, rootDir):
         self.param = param
         self.rootDir = rootDir
 
+        self.cfgf = os.path.join(self.param.tmpDir, uuid + "-sshd.conf")
+        self.proc = None
+
     def start(self):
-        pass
+        try:
+            self.port = GbsUtil.getFreeTcpPort()
+            self._runDaemon()
+        except:
+            self.stop()
+            raise
 
     def stop(self):
-        pass
+        if self.proc is not None:
+            self.proc.terminate()
+            self.proc.wait()
+        GbsUtil.forceDelete(self.cfgf)
 
     def getPort(self):
-        pass
+        return self.port
+
+    def _runDaemon(self):
+        buf = ""
+        buf += "ListenAddress :%d\n" % (self.port)
+        buf += "HostCertificate \"%s\"" % (self.param.certFile)
+        buf += "HostKey \"%s\"" % (self.param.privkeyFile)
+        buf += "ChrootDirectory \"%s\"" % (self.rootDir)
+
+        with open(self.cfgf, "w") as f:
+            f.write(buf)
+
+        cmd = ""
+        cmd += "/usr/sbin/sshd -D -f \"%s\"" % (self.cfgf)
+        self.proc = subprocess.Popen(cmd, shell=True, universal_newlines=True)
