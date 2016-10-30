@@ -102,7 +102,7 @@ def syncUp(ip, port, certFile, keyFile):
     proc = subprocess.Popen(cmd, shell=True, universal_newlines=True)
 
     cmd = ""
-    cmd += "/usr/bin/rsync -a --exclude-from=./exclude.rsync / rsync://127.0.0.1/main"
+    cmd += "/usr/bin/rsync -a --delete --exclude-from=./exclude.rsync / rsync://127.0.0.1/main"
     subprocess.Popen(cmd, shell=True, universal_newlines=True).wait()
 
     proc.terminate()

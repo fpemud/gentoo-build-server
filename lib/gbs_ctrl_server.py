@@ -77,9 +77,9 @@ class GbsCtrlSession:
         self.pubkey = self.sslSock.get_peer_certificate().get_pubkey()
         self.uuid = GbsCommon.findOrCreateSystem(self.parent.param, self.pubkey)
         self.cpuArch = None                                                         # cpu architecture
+        self.mntDir = None
         self.plugin = None                                                          # plugin object
         self.stage = None                                                           # stage number
-        self.mntDir = None
 
         self.threadObj.start()
 
@@ -124,7 +124,7 @@ class GbsCtrlSession:
 
                 if len(writable) > 0:
                     i = self.sslSock.send(self.sendBuf)
-                    self.sendBuf = self.sendBuf[i + 1:]
+                    self.sendBuf = self.sendBuf[i:]
                     if self.bQuit and len(self.sendBuf) == 0:
                         logging.info("Control Server: Client \"UUID:%s\" quits." % (self.uuid))
                         return
@@ -136,12 +136,11 @@ class GbsCtrlSession:
         finally:
             if self.plugin is not None:
                 assert self.stage is not None
-                self.plugin.disconnectHandler()
-                if self.stage == 1:
-                    self.rsyncServ.stop()
-                    del self.rsyncServ
-                if self.stage >= 1:
-                    GbsCommon.systemUnmountDisk(self.parent.param, self.uuid)
+                eval("self.plugin.stage_%d_end_handler()" % (self.stage))           # should raise no exception
+                self.plugin.disconnect_handler()                                    # should raise no exception
+            self._stage1EndHandler()                                                # should raise no exception
+            if self.mntDir is not None:
+                GbsCommon.systemUnmountDisk(self.parent.param, self.uuid)
             del self.parent.sessionDict[self.sslSock]
             self.sslSock.close()
 
@@ -150,59 +149,105 @@ class GbsCtrlSession:
             raise GbsProtocolException("Missing \"command\" in request object")
 
         if requestObj["command"] == "init":
-            return self._cmdInit(requestObj)
+            return self.cmdInit(requestObj)
         elif requestObj["command"] == "stage":
-            return self._cmdStage(requestObj)
+            return self.cmdStage(requestObj)
         elif requestObj["command"] == "quit":
-            return self._cmdQuit(requestObj)
+            return self.cmdQuit(requestObj)
         else:
             raise GbsProtocolException("Unknown command")
 
-    def _cmdInit(self, requestObj):
-        if "cpu-arch" not in requestObj:
-            raise GbsProtocolException("Missing \"cpu-arch\" in init command")
-        self.cpuArch = requestObj["cpu-arch"]
+    def cmdInit(self, requestObj):
+        try:
+            if "cpu-arch" not in requestObj:
+                raise GbsProtocolException("Missing \"cpu-arch\" in init command")
+            self.cpuArch = requestObj["cpu-arch"]
 
-        if "size" not in requestObj:
-            raise GbsProtocolException("Missing \"size\" in init command")
-        if requestObj["size"] > self.parent.param.maxImageSize:
-            raise GbsProtocolException("Value of \"size\" is too large in init command")
-        self.size = requestObj["size"]
-        GbsCommon.systemResizeDisk(self.parent.param, self.uuid, self.size)
+            if "size" not in requestObj:
+                raise GbsProtocolException("Missing \"size\" in init command")
+            if requestObj["size"] > self.parent.param.maxImageSize:
+                raise GbsProtocolException("Value of \"size\" is too large in init command")
+            self.size = requestObj["size"]
+            GbsCommon.systemResizeDisk(self.parent.param, self.uuid, self.size)
 
-        self.stage = 0
+            self.mntDir = GbsCommon.systemMountDisk(self.parent.param, self.uuid)
 
-        if "plugin" not in requestObj:
-            raise GbsProtocolException("Missing \"plugin\" in init command")
-        pyfname = requestObj["plugin"].replace("-", "_")
-        exec("import plugins.%s" % (pyfname))
-        self.plugin = eval("plugins.%s.PluginObject(self.parent.param, GbsPluginApi(self), self)" % (pyfname))
-        self.plugin.initHandler(requestObj)
+            self.stage = 0
 
-        return {"return": {}}
+            if "plugin" not in requestObj:
+                raise GbsProtocolException("Missing \"plugin\" in init command")
+            pyfname = requestObj["plugin"].replace("-", "_")
+            exec("import plugins.%s" % (pyfname))
+            self.plugin = eval("plugins.%s.PluginObject(self.parent.param, GbsPluginApi(self), self)" % (pyfname))
+            self.plugin.init_handler(requestObj)
 
-    def _cmdStage(self, requestObj):
+            return {"return": {}}
+        except Exception as e:
+            if self.mntDir is not None:
+                GbsCommon.systemUnmountDisk(self.parent.param, self.uuid)
+            return {"error": str(e)}
+
+    def cmdStage(self, requestObj):
         self.stage += 1
 
-        if self.stage == 1:
-            self.mntDir = GbsCommon.systemMountDisk(self.parent.param, self.uuid)
-            self.rsyncServ = RsyncService(self.parent.param, self.uuid, self.sslSock.getpeername()[0],
-                                          self.sslSock.get_peer_certificate(), self.mntDir, True)
-            self.rsyncServ.start()
-            return {"return": {"rsync-port": self.rsyncServ.getPort()}}
+        try:
+            if self.stage == 1:
+                try:
+                    ret = self._stage1StartHandler()
+                    return self._formatStageReturn(ret)
+                except:
+                    self._stage1EndHandler()                                            # should raise no exception
+                    raise
 
-        if self.stage == 2:
-            self.rsyncServ.stop()
-            del self.rsyncServ
-            return self.plugin.stageStartHandler(self.stage)
+            if self.stage == 2:
+                self._stage1EndHandler()                                                # should raise no exception
+                try:
+                    ret = self._invokePluginStageStartHandler(self.stage)
+                    return self._formatStageReturn(ret)
+                except:
+                    self._invokePluginStageEndHandler(self.stage)                       # should raise no exception
+                    raise
 
-        if self.stage > 2:
-            self.plugin.stageEndHandler(self.stage - 1)
-            return self.plugin.stageStartHandler(self.stage)
+            if self.stage > 2:
+                self._invokePluginStageEndHandler(self.stage - 1)                       # should raise no exception
+                try:
+                    ret = self._invokePluginStageStartHandler(self.stage)
+                    return self._formatStageReturn(ret)
+                except:
+                    self._invokePluginStageEndHandler(self.stage)                       # should raise no exception
+                    raise
+        except Exception as e:
+            self.stage -= 1
+            return {"error": str(e)}
 
-    def _cmdQuit(self, requestObj):
+    def cmdQuit(self, requestObj):
         self.bQuit = True
         return {"return": {}}
+
+    def _stage1StartHandler(self):
+        self.rsyncServ = RsyncService(self.parent.param, self.uuid, self.sslSock.getpeername()[0],
+                                    self.sslSock.get_peer_certificate(), self.mntDir, True)
+        self.rsyncServ.start()
+        return {"rsync-port": self.rsyncServ.getPort()}
+
+    def _stage1EndHandler(self):
+        if hasattr(self, "rsyncServ"):
+            self.rsyncServ.stop()
+            del self.rsyncServ
+
+    def _invokePluginStageStartHandler(self, stage):
+        if hasattr(self.plugin, "stage_%d_start_handler" % (stage)):
+            return eval("self.plugin.stage_%d_start_handler()" % (stage))
+        else:
+            return {}
+
+    def _invokePluginStageEndHandler(self, stage):
+        if hasattr(self.plugin, "stage_%d_end_handler" % (stage)):
+            eval("self.plugin.stage_%d_end_handler()" % (stage))
+
+    def _formatStageReturn(self, ret):
+        ret["stage"] = self.stage
+        return {"return": ret}
 
 
 class GbsCtrlSessionException(Exception):

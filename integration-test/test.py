@@ -50,6 +50,7 @@ class Test_Stage1(unittest.TestCase):
         self.assertEqual(obj["return"], {})
 
         obj = self.client.cmdStage()
+        self.assertEqual(obj["return"]["stage"] == 1)
         self.assertTrue("rsync-port" in obj["return"])
 
         self.rsync.syncUp(".", "127.0.0.1", obj["return"]["rsync-port"])

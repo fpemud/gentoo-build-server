@@ -40,11 +40,11 @@ class GbsPluginApi:
         GbsUtil.shell("/bin/mount -t tmpfs tmpfs %s -o nosuid,nodev" % (os.path.join(self.sessObj.mntDir, "tmp")))
 
     def unPrepareRoot(self):
-        GbsUtil.shell("/bin/umount %s" % (os.path.join(self.sessObj.mntDir, "tmp")))
-        GbsUtil.shell("/bin/umount %s" % (os.path.join(self.sessObj.mntDir, "run")))
-        GbsUtil.shell("/bin/umount %s" % (os.path.join(self.sessObj.mntDir, "dev")))
-        GbsUtil.shell("/bin/umount %s" % (os.path.join(self.sessObj.mntDir, "sys")))
-        GbsUtil.shell("/bin/umount %s" % (os.path.join(self.sessObj.mntDir, "proc")))
+        GbsUtil.shell("/bin/umount %s" % (os.path.join(self.sessObj.mntDir, "tmp")), "retcode+stdout")
+        GbsUtil.shell("/bin/umount %s" % (os.path.join(self.sessObj.mntDir, "run")), "retcode+stdout")
+        GbsUtil.shell("/bin/umount %s" % (os.path.join(self.sessObj.mntDir, "dev")), "retcode+stdout")
+        GbsUtil.shell("/bin/umount %s" % (os.path.join(self.sessObj.mntDir, "sys")), "retcode+stdout")
+        GbsUtil.shell("/bin/umount %s" % (os.path.join(self.sessObj.mntDir, "proc")), "retcode+stdout")
 
 
 class GbsCommon:
@@ -96,29 +96,6 @@ class GbsCommon:
             GbsUtil.shell("/sbin/resize2fs %s" % (fn), "stdout")
 
     @staticmethod
-    def hasSystem(param, userName, systemName):
-        return glob.glob(_glob_var(param, userName, systemName)) != []
-
-    @staticmethod
-    def addSystem(param, userName, systemName):
-        assert glob.glob(_glob_var(param, userName, systemName)) == []
-        assert glob.glob(_glob_cache(param, userName, systemName)) == []
-
-        # generate ssh public key
-        fn = _ssh_pubkey_file(param, userName, systemName)
-
-        # generate disk image
-        fn = _image_file(param, userName, systemName)
-        GbsUtil.shell("/bin/dd if=/dev/zero of=%s bs=%d count=%s conv=sparse" % (fn, 1024 * 1024 * 1024, 50))   # allocate 50GB
-        GbsUtil.shell("/sbin/mkfs.ext4 %s" % (fn))
-
-    @staticmethod
-    def removeSystem(param, userName, systemName):
-        # delete cache files
-        GbsUtil.shell("/bin/rm -f %s" % (_glob_cache(param, userName, systemName)))
-        GbsUtil.shell("/bin/rm -f %s" % (_glob_var(param, userName, systemName)))
-
-    @staticmethod
     def systemDumpDiskInfo(param, userName, systemName):
         return GbsUtil.shell("/sbin/dumpe2fs -h %s" % (_image_file(param, userName, systemName))).decode("iso8859-1")
 
@@ -126,10 +103,6 @@ class GbsCommon:
     def systemGetSshPublicKey(param, userName, systemName):
         with open(_ssh_pubkey_file(param, userName, systemName), "r") as f:
             return f.read()
-
-    @staticmethod
-    def systemIsActive(param, userName, systemName):
-        return False
 
     @staticmethod
     def findSystemBySshPublicKey(param, key):
@@ -167,14 +140,6 @@ def _ssh_pubkey_file(param, uuid):
 
 def _mnt_dir(param, uuid):
     return os.path.join(param.tmpDir, uuid, "mnt")
-
-
-def _glob_var(param, userName, systemName):
-    return os.path.join(param.varDir, "%s::%s.*" % (userName, systemName))
-
-
-def _glob_cache(param, userName, systemName):
-    return os.path.join(param.varDir, "%s::%s.*" % (userName, systemName))
 
 
 def _default_image_size():
