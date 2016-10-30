@@ -120,10 +120,9 @@ class GbsUtil:
             shutil.rmtree(filename)
 
     @staticmethod
-    def forceSymlink(source, link_name):
-        if os.path.exists(link_name):
-            os.remove(link_name)
-        os.symlink(source, link_name)
+    def ensureDir(dirname):
+        if not os.path.exists(dirname):
+            os.makedirs(dirname)
 
     @staticmethod
     def shell(cmd, flags=""):

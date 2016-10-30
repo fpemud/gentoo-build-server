@@ -119,7 +119,7 @@ class GbsCommon:
     @staticmethod
     def systemMountDisk(param, uuid):
         dirname = _mnt_dir(param, uuid)
-        os.makedirs(dirname)
+        GbsUtil.ensureDir(dirname)
         GbsUtil.shell("/bin/mount %s %s" % (_image_file(param, uuid), dirname))
         return dirname
 
@@ -127,7 +127,10 @@ class GbsCommon:
     def systemUnmountDisk(param, uuid):
         dirname = _mnt_dir(param, uuid)
         GbsUtil.shell("/bin/umount %s" % (dirname))
-        os.rmdir(dirname)
+        try:
+            os.rmdir(dirname)
+        except:
+            pass    # fixme
 
 
 def _image_file(param, uuid):

@@ -196,6 +196,7 @@ if __name__ == "__main__":
     req["command"] = "stage"
     sendRequestObj(sslSock, req)
     resp = recvReponseObj(sslSock)
+    assert resp["return"]["stage"] == 1
 
     syncUp(dstIp, resp["return"]["rsync-port"], "./cert.pem", "./privkey.pem")
 
@@ -205,6 +206,7 @@ if __name__ == "__main__":
     req["command"] = "stage"
     sendRequestObj(sslSock, req)
     resp = recvReponseObj(sslSock)
+    assert resp["return"]["stage"] == 2
 
     sshExec(dstIp, resp["return"]["ssh-port"], "./cert.pem", "./privkey.pem", sys.argv[2:])
 
@@ -214,5 +216,6 @@ if __name__ == "__main__":
     req["command"] = "stage"
     sendRequestObj(sslSock, req)
     resp = recvReponseObj(sslSock)
+    assert resp["return"]["stage"] == 3
 
     syncDown(dstIp, resp["return"]["rsync-port"], "./cert.pem", "./privkey.pem")

@@ -47,11 +47,11 @@ class Test_Stage1(unittest.TestCase):
 
     def runTest(self):
         obj = self.client.cmdInit("x86", 10, "gentoo")
-        self.assertEqual(obj["return"], {})
+        self.assertEqual(obj,  {"return": {}})
 
         obj = self.client.cmdStage()
-        self.assertEqual(obj["return"]["stage"] == 1)
-        self.assertTrue("rsync-port" in obj["return"])
+        self.assertEqual(obj["return"]["stage"], 1)
+        self.assertTrue(obj, "rsync-port" in obj["return"])
 
         self.rsync.syncUp(".", "127.0.0.1", obj["return"]["rsync-port"])
 

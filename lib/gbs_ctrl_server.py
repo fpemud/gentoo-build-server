@@ -136,7 +136,7 @@ class GbsCtrlSession:
         finally:
             if self.plugin is not None:
                 assert self.stage is not None
-                eval("self.plugin.stage_%d_end_handler()" % (self.stage))           # should raise no exception
+                self._invokePluginStageEndHandler(self.stage)                       # should raise no exception
                 self.plugin.disconnect_handler()                                    # should raise no exception
             self._stage1EndHandler()                                                # should raise no exception
             if self.mntDir is not None:
@@ -239,7 +239,7 @@ class GbsCtrlSession:
         if hasattr(self.plugin, "stage_%d_start_handler" % (stage)):
             return eval("self.plugin.stage_%d_start_handler()" % (stage))
         else:
-            return {}
+            raise GbsPluginException("Stage %d is not supported" % (stage))
 
     def _invokePluginStageEndHandler(self, stage):
         if hasattr(self.plugin, "stage_%d_end_handler" % (stage)):
@@ -251,6 +251,10 @@ class GbsCtrlSession:
 
 
 class GbsCtrlSessionException(Exception):
+    pass
+
+
+class GbsPluginException(Exception):
     pass
 
 
