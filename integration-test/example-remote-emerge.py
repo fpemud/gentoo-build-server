@@ -102,7 +102,7 @@ def syncUp(ip, port, certFile, keyFile):
     proc = subprocess.Popen(cmd, shell=True, universal_newlines=True)
 
     cmd = ""
-    cmd += "/usr/bin/rsync -a --delete --exclude-from=./exclude.rsync / rsync://127.0.0.1/main"
+    cmd += "/usr/bin/rsync -a -v --delete --exclude-from=./exclude.rsync / rsync://127.0.0.1/main"
     subprocess.Popen(cmd, shell=True, universal_newlines=True).wait()
 
     proc.terminate()
@@ -163,6 +163,10 @@ def syncDown(ip, port, certFile, keyFile):
 
 
 if __name__ == "__main__":
+    if os.getuid() != 0:
+        print("priviledge error")
+        sys.exit(1)
+
     dstIp = ""
     dstPort = 2108
     if len(sys.argv) < 2:
@@ -196,6 +200,9 @@ if __name__ == "__main__":
     req["command"] = "stage"
     sendRequestObj(sslSock, req)
     resp = recvReponseObj(sslSock)
+    if "error" in resp:
+        print(str(resp))
+        sys.exit(1)
     assert resp["return"]["stage"] == 1
 
     syncUp(dstIp, resp["return"]["rsync-port"], "./cert.pem", "./privkey.pem")
@@ -206,6 +213,9 @@ if __name__ == "__main__":
     req["command"] = "stage"
     sendRequestObj(sslSock, req)
     resp = recvReponseObj(sslSock)
+    if "error" in resp:
+        print(str(resp))
+        sys.exit(1)
     assert resp["return"]["stage"] == 2
 
     sshExec(dstIp, resp["return"]["ssh-port"], "./cert.pem", "./privkey.pem", sys.argv[2:])
@@ -216,6 +226,9 @@ if __name__ == "__main__":
     req["command"] = "stage"
     sendRequestObj(sslSock, req)
     resp = recvReponseObj(sslSock)
+    if "error" in resp:
+        print(str(resp))
+        sys.exit(1)
     assert resp["return"]["stage"] == 3
 
     syncDown(dstIp, resp["return"]["rsync-port"], "./cert.pem", "./privkey.pem")

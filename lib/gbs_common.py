@@ -38,9 +38,9 @@ class GbsPluginApi:
         tmpDir = os.path.join(self.sessObj.mntDir, "tmp")
         try:
             GbsUtil.shell("/bin/mount -t proc proc %s" % (procDir), "stdout")
-            GbsUtil.shell("/bin/mount -rbind /sys %s" % (sysDir), "stdout")
+            GbsUtil.shell("/bin/mount --rbind /sys %s" % (sysDir), "stdout")
             GbsUtil.shell("/bin/mount --make-rslave %s" % (sysDir), "stdout")
-            GbsUtil.shell("/bin/mount -rbind /dev %s" % (devDir), "stdout")
+            GbsUtil.shell("/bin/mount --rbind /dev %s" % (devDir), "stdout")
             GbsUtil.shell("/bin/mount --make-rslave %s" % (devDir), "stdout")
             GbsUtil.shell("/bin/mount -t tmpfs tmpfs %s -o nosuid,nodev,mode=755" % (runDir), "stdout")
             GbsUtil.shell("/bin/mount -t tmpfs tmpfs %s -o nosuid,nodev" % (tmpDir), "stdout")
@@ -134,17 +134,8 @@ class GbsCommon:
 
     @staticmethod
     def systemUnmountDisk(param, uuid):
-        import logging
-        logging.debug("ffffffffffffffffffffff2222222222222")
-        import time
-        time.sleep(100)
-        logging.debug("ffffffffffffffffffffff3333333333333")
         dirname = _mnt_dir(param, uuid)
-        try:
-            GbsUtil.shell("/bin/umount %s" % (dirname))
-            os.rmdir(dirname)
-        except:
-            GbsUtil.shell("/bin/fuser " + dirname)
+        GbsUtil.shell("/bin/umount -l %s" % (dirname))      # fixme, why "-l"?
 
 
 def _image_file(param, uuid):
@@ -156,7 +147,7 @@ def _ssh_pubkey_file(param, uuid):
 
 
 def _mnt_dir(param, uuid):
-    return os.path.join(param.tmpDir, uuid, "mnt")
+    return os.path.join(param.cacheDir, uuid, "mntdir")
 
 
 def _default_image_size():

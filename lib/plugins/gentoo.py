@@ -36,8 +36,8 @@ class PluginObject:
         if self.mode == "emerge+sync":
             self.rsyncServ = self.api.RsyncService(self.param, self.sessObj.uuid,
                                                     self.sessObj.sslSock.getpeername()[0],
-                                                    self.sslSock.get_peer_certificate(),
-                                                    self.mntDir, False)
+                                                    self.sessObj.sslSock.get_peer_certificate(),
+                                                    self.sessObj.mntDir, False)
             self.rsyncServ.start()
             return {"rsync-port": self.rsyncServ.getPort()}
         elif self.mode == "emerge+binpkg":

@@ -54,9 +54,16 @@ class GbsCtrlServer:
             return True
 
     def onHandShakeComplete(self, source, sslSock, hostname, port):
+        pubkey = sslSock.get_peer_certificate().get_pubkey()
+        for sessObj in self.sessionDict.values():
+            if pubkey == sessObj.pubkey:
+                logging.error("Control Server: Client \"%s\" duplicate, UUID \"%s\"." % (sslSock.getpeername()[0], self.sessionDict[pubkey].uuid))
+                sslSock.close()
+                return
+
         sessObj = GbsCtrlSession(self, sslSock)
         logging.info("Control Server: Client \"%s\" connected, UUID \"%s\"." % (sslSock.getpeername()[0], sessObj.uuid))
-        self.sessionDict[sslSock] = sessObj
+        self.sessionDict[pubkey] = sessObj
 
     def onHandShakeError(self, source, hostname, port):
         logging.error("Control Server: Client \"%s\" hand shake error." % (source.getpeername()[0]))
@@ -184,7 +191,7 @@ class GbsCtrlSession:
             self.plugin = eval("plugins.%s.PluginObject(self.parent.param, GbsPluginApi(self), self)" % (pyfname))
             self.plugin.init_handler(requestObj)
 
-            logging.debug("Control Server: Init command processed from client \"UUID:%s\"." % (self.uuid))
+            logging.debug("Control Server: Init command processed from client \"UUID:%s\", plugin %s." % (self.uuid, requestObj["plugin"]))
             return {"return": {}}
         except Exception as e:
             logging.debug("Control Server: Init command error %s from client \"UUID:%s\"." % (str(e), self.uuid))

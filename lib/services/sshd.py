@@ -21,9 +21,9 @@ class SshService:
 
             buf = ""
             buf += "ListenAddress :%d\n" % (self.port)
-            buf += "HostCertificate \"%s\"" % (self.param.certFile)
-            buf += "HostKey \"%s\"" % (self.param.privkeyFile)
-            buf += "ChrootDirectory \"%s\"" % (self.rootDir)
+            buf += "HostCertificate \"%s\"\n" % (self.param.certFile)
+            buf += "HostKey \"%s\"\n" % (self.param.privkeyFile)
+            buf += "ChrootDirectory \"%s\"\n" % (self.rootDir)
             with open(self.cfgf, "w") as f:
                 f.write(buf)
 
