@@ -125,6 +125,19 @@ class GbsUtil:
             os.makedirs(dirname)
 
     @staticmethod
+    def isMountPoint(pathname):
+        buf = FmUtil.shell("/bin/mount", "stdout")
+        found = False
+        for line in buf.split("\n"):
+            m = re.match("^(.*) on (.*) type ", line)
+            if m is None:
+                continue
+            if m.group(2) == pathname:
+                found = True
+                break
+        return found
+
+    @staticmethod
     def shell(cmd, flags=""):
         """Execute shell command"""
 

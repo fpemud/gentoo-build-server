@@ -31,13 +31,22 @@ class GbsPluginApi:
         self.sessObj = sessObj
 
     def prepareRoot(self):
-        GbsUtil.shell("/bin/mount -t proc proc %s" % (os.path.join(self.sessObj.mntDir, "proc")))
-        GbsUtil.shell("/bin/mount -rbind /sys %s" % (os.path.join(self.sessObj.mntDir, "sys")))
-        GbsUtil.shell("/bin/mount --make-rslave %s" % (os.path.join(self.sessObj.mntDir, "sys")))
-        GbsUtil.shell("/bin/mount -rbind /dev %s" % (os.path.join(self.sessObj.mntDir, "dev")))
-        GbsUtil.shell("/bin/mount --make-rslave %s" % (os.path.join(self.sessObj.mntDir, "dev")))
-        GbsUtil.shell("/bin/mount -t tmpfs tmpfs %s -o nosuid,nodev,mode=755" % (os.path.join(self.sessObj.mntDir, "run")))
-        GbsUtil.shell("/bin/mount -t tmpfs tmpfs %s -o nosuid,nodev" % (os.path.join(self.sessObj.mntDir, "tmp")))
+        procDir = os.path.join(self.sessObj.mntDir, "proc")
+        sysDir = os.path.join(self.sessObj.mntDir, "sys")
+        devDir = os.path.join(self.sessObj.mntDir, "dev")
+        runDir = os.path.join(self.sessObj.mntDir, "run")
+        tmpDir = os.path.join(self.sessObj.mntDir, "tmp")
+        try:
+            GbsUtil.shell("/bin/mount -t proc proc %s" % (procDir), "stdout")
+            GbsUtil.shell("/bin/mount -rbind /sys %s" % (sysDir), "stdout")
+            GbsUtil.shell("/bin/mount --make-rslave %s" % (sysDir), "stdout")
+            GbsUtil.shell("/bin/mount -rbind /dev %s" % (devDir), "stdout")
+            GbsUtil.shell("/bin/mount --make-rslave %s" % (devDir), "stdout")
+            GbsUtil.shell("/bin/mount -t tmpfs tmpfs %s -o nosuid,nodev,mode=755" % (runDir), "stdout")
+            GbsUtil.shell("/bin/mount -t tmpfs tmpfs %s -o nosuid,nodev" % (tmpDir), "stdout")
+        except:
+            self.unPrepareRoot()
+            raise
 
     def unPrepareRoot(self):
         GbsUtil.shell("/bin/umount %s" % (os.path.join(self.sessObj.mntDir, "tmp")), "retcode+stdout")
@@ -118,8 +127,6 @@ class GbsCommon:
 
     @staticmethod
     def systemMountDisk(param, uuid):
-        import logging
-        logging.debug("ffffffffffffffffffffff")
         dirname = _mnt_dir(param, uuid)
         GbsUtil.ensureDir(dirname)
         GbsUtil.shell("/bin/mount %s %s" % (_image_file(param, uuid), dirname))
@@ -129,6 +136,9 @@ class GbsCommon:
     def systemUnmountDisk(param, uuid):
         import logging
         logging.debug("ffffffffffffffffffffff2222222222222")
+        import time
+        time.sleep(100)
+        logging.debug("ffffffffffffffffffffff3333333333333")
         dirname = _mnt_dir(param, uuid)
         try:
             GbsUtil.shell("/bin/umount %s" % (dirname))
