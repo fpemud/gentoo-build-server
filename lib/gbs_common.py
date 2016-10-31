@@ -118,6 +118,8 @@ class GbsCommon:
 
     @staticmethod
     def systemMountDisk(param, uuid):
+        import logging
+        logging.debug("ffffffffffffffffffffff")
         dirname = _mnt_dir(param, uuid)
         GbsUtil.ensureDir(dirname)
         GbsUtil.shell("/bin/mount %s %s" % (_image_file(param, uuid), dirname))
@@ -125,12 +127,14 @@ class GbsCommon:
 
     @staticmethod
     def systemUnmountDisk(param, uuid):
+        import logging
+        logging.debug("ffffffffffffffffffffff2222222222222")
         dirname = _mnt_dir(param, uuid)
-        GbsUtil.shell("/bin/umount %s" % (dirname))
         try:
+            GbsUtil.shell("/bin/umount %s" % (dirname))
             os.rmdir(dirname)
         except:
-            pass    # fixme
+            GbsUtil.shell("/bin/fuser " + dirname)
 
 
 def _image_file(param, uuid):

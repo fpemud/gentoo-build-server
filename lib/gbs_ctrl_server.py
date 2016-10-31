@@ -136,9 +136,11 @@ class GbsCtrlSession:
         finally:
             if self.plugin is not None:
                 assert self.stage is not None
-                self._invokePluginStageEndHandler(self.stage)                       # should raise no exception
-                self.plugin.disconnect_handler()                                    # should raise no exception
-            self._stage1EndHandler()                                                # should raise no exception
+                if self.stage == 1:
+                    self._stage1EndHandler()                        # should raise no exception
+                else:
+                    self._invokePluginStageEndHandler(self.stage)   # should raise no exception
+                self.plugin.disconnect_handler()                    # should raise no exception
             if self.mntDir is not None:
                 GbsCommon.systemUnmountDisk(self.parent.param, self.uuid)
             del self.parent.sessionDict[self.sslSock]
@@ -158,6 +160,7 @@ class GbsCtrlSession:
             raise GbsProtocolException("Unknown command")
 
     def cmdInit(self, requestObj):
+        logging.debug("Control Server: Init command received from client \"UUID:%s\"." % (self.uuid))
         try:
             if "cpu-arch" not in requestObj:
                 raise GbsProtocolException("Missing \"cpu-arch\" in init command")
@@ -181,67 +184,77 @@ class GbsCtrlSession:
             self.plugin = eval("plugins.%s.PluginObject(self.parent.param, GbsPluginApi(self), self)" % (pyfname))
             self.plugin.init_handler(requestObj)
 
+            logging.debug("Control Server: Init command processed from client \"UUID:%s\"." % (self.uuid))
             return {"return": {}}
         except Exception as e:
+            logging.debug("Control Server: Init command error %s from client \"UUID:%s\"." % (str(e), self.uuid))
             if self.mntDir is not None:
                 GbsCommon.systemUnmountDisk(self.parent.param, self.uuid)
             return {"error": str(e)}
 
     def cmdStage(self, requestObj):
+        logging.debug("Control Server: Stage command received from client \"UUID:%s\", stage %d." % (self.uuid, self.stage))
         self.stage += 1
-
         try:
+            ret = None
             if self.stage == 1:
-                try:
-                    ret = self._stage1StartHandler()
-                    return self._formatStageReturn(ret)
-                except:
-                    self._stage1EndHandler()                                            # should raise no exception
-                    raise
-
-            if self.stage == 2:
-                self._stage1EndHandler()                                                # should raise no exception
-                try:
-                    ret = self._invokePluginStageStartHandler(self.stage)
-                    return self._formatStageReturn(ret)
-                except:
-                    self._invokePluginStageEndHandler(self.stage)                       # should raise no exception
-                    raise
-
-            if self.stage > 2:
-                self._invokePluginStageEndHandler(self.stage - 1)                       # should raise no exception
-                try:
-                    ret = self._invokePluginStageStartHandler(self.stage)
-                    return self._formatStageReturn(ret)
-                except:
-                    self._invokePluginStageEndHandler(self.stage)                       # should raise no exception
-                    raise
+                ret = self._stage1StartHandler()
+            elif self.stage == 2:
+                self._stage1EndHandler()                                # should raise no exception
+                ret = self._invokePluginStageStartHandler(self.stage)
+            elif self.stage > 2:
+                self._invokePluginStageEndHandler(self.stage - 1)       # should raise no exception
+                ret = self._invokePluginStageStartHandler(self.stage)
+            else:
+                assert False
+            logging.debug("Control Server: Stage command processed from client \"UUID:%s\", new stage %d." % (self.uuid, self.stage))
+            return self._formatStageReturn(ret)
         except Exception as e:
+            logging.debug("Control Server: Stage command error %s from client \"UUID:%s\"." % (str(e), self.uuid))
             self.stage -= 1
             return {"error": str(e)}
 
     def cmdQuit(self, requestObj):
+        logging.debug("Control Server: Quit command from client \"UUID:%s\"." % (self.uuid))
         self.bQuit = True
         return {"return": {}}
 
     def _stage1StartHandler(self):
-        self.rsyncServ = RsyncService(self.parent.param, self.uuid, self.sslSock.getpeername()[0],
-                                    self.sslSock.get_peer_certificate(), self.mntDir, True)
-        self.rsyncServ.start()
-        return {"rsync-port": self.rsyncServ.getPort()}
+        try:
+            self.rsyncServ = RsyncService(self.parent.param, self.uuid, self.sslSock.getpeername()[0],
+                                        self.sslSock.get_peer_certificate(), self.mntDir, True)
+            self.rsyncServ.start()
+            ret =  {"rsync-port": self.rsyncServ.getPort()}
+            logging.debug("Control Server: Stage 1 started for client \"UUID:%s\"." % (self.uuid))
+            return ret
+        except:
+            logging.debug("Control Server: Stage 1 start error for client \"UUID:%s\"." % (self.uuid))
+            self._stage1EndHandler(False)
+            raise
 
-    def _stage1EndHandler(self):
+    def _stage1EndHandler(self, doLog=True):
+        if doLog:
+            logging.debug("Control Server: Stage 1 end for client \"UUID:%s\"." % (self.uuid))
         if hasattr(self, "rsyncServ"):
             self.rsyncServ.stop()
             del self.rsyncServ
 
     def _invokePluginStageStartHandler(self, stage):
-        if hasattr(self.plugin, "stage_%d_start_handler" % (stage)):
-            return eval("self.plugin.stage_%d_start_handler()" % (stage))
-        else:
-            raise GbsPluginException("Stage %d is not supported" % (stage))
+        try:
+            if hasattr(self.plugin, "stage_%d_start_handler" % (stage)):
+                ret = eval("self.plugin.stage_%d_start_handler()" % (stage))
+                logging.debug("Control Server: Stage %d started for client \"UUID:%s\"." % (self.stage, self.uuid))
+                return ret
+            else:
+                raise GbsPluginException("Stage %d is not supported" % (stage))
+        except:
+            logging.debug("Control Server: Stage %d start error for client \"UUID:%s\"." % (self.stage, self.uuid))
+            self._stage1EndHandler(False)
+            raise
 
-    def _invokePluginStageEndHandler(self, stage):
+    def _invokePluginStageEndHandler(self, stage, doLog=True):
+        if doLog:
+            logging.debug("Control Server: Stage %d end for client \"UUID:%s\"." % (self.stage, self.uuid))
         if hasattr(self.plugin, "stage_%d_end_handler" % (stage)):
             eval("self.plugin.stage_%d_end_handler()" % (stage))
 
