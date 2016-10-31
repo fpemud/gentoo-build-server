@@ -225,16 +225,16 @@ class GbsCtrlSession:
                                         self.sslSock.get_peer_certificate(), self.mntDir, True)
             self.rsyncServ.start()
             ret =  {"rsync-port": self.rsyncServ.getPort()}
-            logging.debug("Control Server: Stage 1 started for client \"UUID:%s\"." % (self.uuid))
+            logging.debug("Control Server: Stage %d started for client \"UUID:%s\"." % (self.stage, self.uuid))
             return ret
         except:
-            logging.debug("Control Server: Stage 1 start error for client \"UUID:%s\"." % (self.uuid))
+            logging.debug("Control Server: Stage %d start error for client \"UUID:%s\"." % (self.stage, self.uuid))
             self._stage1EndHandler(False)
             raise
 
     def _stage1EndHandler(self, doLog=True):
         if doLog:
-            logging.debug("Control Server: Stage 1 end for client \"UUID:%s\"." % (self.uuid))
+            logging.debug("Control Server: Stage %d end for client \"UUID:%s\"." % (self.stage, self.uuid))
         if hasattr(self, "rsyncServ"):
             self.rsyncServ.stop()
             del self.rsyncServ
