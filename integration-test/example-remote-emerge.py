@@ -116,7 +116,7 @@ def syncUp(ip, port, certFile, keyFile):
 
 def sshExec(ip, port, certFile, keyFile, argList):
     cmd = ""
-    cmd += "/usr/bin/ssh %s:%d emerge %s" % (ip, port, " ".join(argList))
+    cmd += "/usr/bin/ssh -p %d %s emerge %s" % (port, ip, " ".join(argList))
     subprocess.Popen(cmd, shell=True, universal_newlines=True).wait()
 
 

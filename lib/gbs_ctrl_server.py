@@ -63,7 +63,7 @@ class GbsCtrlServer:
 
         sessObj = GbsCtrlSession(self, sslSock)
         logging.info("Control Server: Client \"%s\" connected, UUID \"%s\"." % (sslSock.getpeername()[0], sessObj.uuid))
-        self.sessionDict[pubkey] = sessObj
+        self.sessionDict[sslSock] = sessObj
 
     def onHandShakeError(self, source, hostname, port):
         logging.error("Control Server: Client \"%s\" hand shake error." % (source.getpeername()[0]))

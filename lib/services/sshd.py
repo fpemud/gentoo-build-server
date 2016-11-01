@@ -13,6 +13,7 @@ class SshService:
         self.rootDir = rootDir
 
         self.cfgf = os.path.join(self.param.tmpDir, uuid + "-sshd.conf")
+        self.keyf = os.path.join(self.param.tmpDir, uuid + "-authorized_keys")
         self.proc = None
 
     def start(self):
@@ -20,10 +21,26 @@ class SshService:
             self.port = GbsUtil.getFreeTcpPort()
 
             buf = ""
-            buf += "ListenAddress :%d\n" % (self.port)
+            buf += "ssh-rsa
+            srcCert..get_pubkey()
+            
+            
+            AAAAB3NzaC1yc2EAAAADAQABAAABAQDJuswSBK9VgIJddzClfZnxHCBzhhFv+iHh9LxbifKDZO1r/IyHp0ySJVl1l2Wpxu7KNw/CCGM6RujJyDfXUoVjWuobkqtrQaFoCNnQQaEeraSyujRxUZO+1mOxPK04BncfF7jMRyJgU4mzEIOvDEgGbVNRh78+8Alf2Eg5fgWYhRrvGt1v7B1/l/L7T2Ky/Wm65TURXZ6XY/k91Yz/0U9pwujrvowTYtcDSjV1lyTfsMdVN3Jv6KlI3WYoJvgky5vTOX/qNeFLTMOagN5Ur5TQKksDVnDo+LqPfBPy3wl8WJV1ip85rRt971yLGqo+SJ+rOqNRy2mwQmDUB1fbTF root@fpemud-workstation
+"
+
+
+            buf = ""
+            buf += "ListenAddress 0.0.0.0:%d\n" % (self.port)
             buf += "HostCertificate \"%s\"\n" % (self.param.certFile)
             buf += "HostKey \"%s\"\n" % (self.param.privkeyFile)
+            buf += "AuthorizedKeysFile \"%s\"" % ()
             buf += "ChrootDirectory \"%s\"\n" % (self.rootDir)
+            buf += "\n"
+            buf += "PermitRootLogin forced-commands-only\n"
+            buf += "PasswordAuthentication no\n"
+            buf += "KbdInteractiveAuthentication no\n"
+            buf += "ChallengeResponseAuthentication no\n"
+            buf += "AuthenticationMethods \"publickey\"\n"
             with open(self.cfgf, "w") as f:
                 f.write(buf)
 
