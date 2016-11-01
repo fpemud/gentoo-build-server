@@ -101,15 +101,17 @@ def syncUp(ip, port, certFile, keyFile):
     cmd += "/usr/sbin/stunnel ./stunnel.conf >/dev/null 2>&1"
     proc = subprocess.Popen(cmd, shell=True, universal_newlines=True)
 
-    cmd = ""
-    cmd += "/usr/bin/rsync -a -v --delete --exclude-from=./exclude.rsync / rsync://127.0.0.1/main"
-    subprocess.Popen(cmd, shell=True, universal_newlines=True).wait()
-
-    proc.terminate()
-    proc.wait()
-
-    os.unlink("./exclude.rsync")
-    os.unlink("./stunnel.conf")
+    try:
+        cmd = ""
+        cmd += "/usr/bin/rsync -a -v --delete --exclude-from=./exclude.rsync / rsync://127.0.0.1/main"
+        ret = subprocess.Popen(cmd, shell=True, universal_newlines=True).wait()
+        if ret != 0:
+            raise Exception("syncup failed")
+    finally:
+        proc.terminate()
+        proc.wait()
+        os.unlink("./exclude.rsync")
+        os.unlink("./stunnel.conf")
 
 
 def sshExec(ip, port, certFile, keyFile, argList):
