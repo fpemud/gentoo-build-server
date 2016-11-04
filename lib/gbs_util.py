@@ -290,3 +290,8 @@ class GbsUtil:
             buf = crypto.dump_privatekey(crypto.FILETYPE_PEM, key)
             f.write(buf)
             os.fchmod(f.fileno(), 0o600)
+
+    @staticmethod
+    def certFileToOpenSshCertFile(keyFile, srcCertFile, dstCertFile):
+        # convert openssl certificate file to the openssh special format
+        pass

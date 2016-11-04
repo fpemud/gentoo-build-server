@@ -13,6 +13,7 @@ class SshService:
         self.rootDir = rootDir
 
         self.cfgf = os.path.join(self.param.tmpDir, uuid + "-sshd.conf")
+        self.certf = os.path.join(self.param.tmpDir, uuid + "-cert.pem")
         self.keyf = os.path.join(self.param.tmpDir, uuid + "-authorized_keys")
         self.proc = None
 
