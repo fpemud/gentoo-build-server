@@ -13,34 +13,33 @@ class SshService:
         self.rootDir = rootDir
 
         self.cfgf = os.path.join(self.param.tmpDir, uuid + "-sshd.conf")
-        self.certf = os.path.join(self.param.tmpDir, uuid + "-cert.pem")
-        self.keyf = os.path.join(self.param.tmpDir, uuid + "-authorized_keys")
+        # self.certf = os.path.join(self.param.tmpDir, uuid + "-cert.openssh")
+        self.certf = os.path.join(self.param.tmpDir, uuid + "-key.openssh-cert.pub")        # fixme
+        self.keyf = os.path.join(self.param.tmpDir, uuid + "-key.openssh")
+        self.akeyf = os.path.join(self.param.tmpDir, uuid + "-authorized_keys")
         self.proc = None
 
     def start(self):
         try:
+            # fixme: generate new cert and key for openssh
+            # should convert self.param.cert and self.param.key to openssh format
+            GbsUtil.shell("/usr/bin/ssh-keygen -q -N \"\" -f %s" % (self.keyf))
+            GbsUtil.shell("/usr/bin/ssh-keygen -q -h -I abc -V +1w -s %s %s" % (self.keyf, self.keyf))
+
             self.port = GbsUtil.getFreeTcpPort()
 
             buf = ""
-            buf += "ssh-rsa
-            srcCert..get_pubkey()
-            
-            
-            AAAAB3NzaC1yc2EAAAADAQABAAABAQDJuswSBK9VgIJddzClfZnxHCBzhhFv+iHh9LxbifKDZO1r/IyHp0ySJVl1l2Wpxu7KNw/CCGM6RujJyDfXUoVjWuobkqtrQaFoCNnQQaEeraSyujRxUZO+1mOxPK04BncfF7jMRyJgU4mzEIOvDEgGbVNRh78+8Alf2Eg5fgWYhRrvGt1v7B1/l/L7T2Ky/Wm65TURXZ6XY/k91Yz/0U9pwujrvowTYtcDSjV1lyTfsMdVN3Jv6KlI3WYoJvgky5vTOX/qNeFLTMOagN5Ur5TQKksDVnDo+LqPfBPy3wl8WJV1ip85rRt971yLGqo+SJ+rOqNRy2mwQmDUB1fbTF root@fpemud-workstation
-"
-
-
-            buf = ""
             buf += "ListenAddress 0.0.0.0:%d\n" % (self.port)
-            buf += "HostCertificate \"%s\"\n" % (self.param.certFile)
-            buf += "HostKey \"%s\"\n" % (self.param.privkeyFile)
-            buf += "AuthorizedKeysFile \"%s\"" % ()
+            buf += "HostCertificate \"%s\"\n" % (self.certf)
+            buf += "HostKey \"%s\"\n" % (self.keyf)
+            buf += "AuthorizedKeysFile \"%s\"" % (self.akeyf)
             buf += "ChrootDirectory \"%s\"\n" % (self.rootDir)
             buf += "\n"
             buf += "PermitRootLogin forced-commands-only\n"
             buf += "PasswordAuthentication no\n"
             buf += "KbdInteractiveAuthentication no\n"
             buf += "ChallengeResponseAuthentication no\n"
+#            buf += "PubkeyAuthentication no\n"
             buf += "AuthenticationMethods \"publickey\"\n"
             with open(self.cfgf, "w") as f:
                 f.write(buf)
@@ -56,7 +55,21 @@ class SshService:
         if self.proc is not None:
             self.proc.terminate()
             self.proc.wait()
+        GbsUtil.forceDelete(self.akeyf)
+        GbsUtil.forceDelete(self.keyf)
+        GbsUtil.forceDelete(self.certf)
         GbsUtil.forceDelete(self.cfgf)
 
     def getPort(self):
         return self.port
+
+
+
+#$ scp foobar.example.org:/etc/ssh/ssh_host_rsa_key.pub foobar.pub
+#$ ssh-keygen -h                             \ # sign host key
+#             -s ~/.ssh/cert_signer          \ # CA key
+#             -I foobar                      \ # Key identifier
+#             -V +1w                         \ # Valid only 1 week
+#             -n foobar,foobar.example.org   \ # Valid hostnames
+#             foobar.pub                       # Host pubkey file
+#$ scp foobar-cert.pub foobar.example.org:/etc/ssh/ssh_host_rsa_key-cert.pub
