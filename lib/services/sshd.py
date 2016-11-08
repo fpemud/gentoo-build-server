@@ -12,6 +12,14 @@ class SshService:
         self.param = param
         self.rootDir = rootDir
 
+        self.logLevelDict = {
+            'CRITICAL': "FATAL",
+            'ERROR': "ERROR",
+            'WARNING': "ERROR",
+            'INFO': "INFO",
+            'DEBUG': "DEBUG",
+        }
+
         self.cfgf = os.path.join(self.param.tmpDir, uuid + "-sshd.conf")
         # self.certf = os.path.join(self.param.tmpDir, uuid + "-cert.openssh")
         self.certf = os.path.join(self.param.tmpDir, uuid + "-key.openssh-cert.pub")        # fixme
@@ -25,17 +33,23 @@ class SshService:
             # should convert self.param.cert and self.param.key to openssh format
             GbsUtil.shell("/usr/bin/ssh-keygen -q -N \"\" -f %s" % (self.keyf))
             GbsUtil.shell("/usr/bin/ssh-keygen -q -h -I abc -V +1w -s %s %s" % (self.keyf, self.keyf))
+            GbsUtil.shell("/bin/cp %s.pub %s" % (self.keyf, self.akeyf))
+            GbsUtil.shell("/bin/cp %s.pub %s" % (self.keyf, "/root/.ssh/authorized_keys"))
 
             self.port = GbsUtil.getFreeTcpPort()
 
+            GbsUtil.shell("/bin/chroot " + self.rootDir + " /bin/ls /root -la")
+
             buf = ""
+            buf += "LogLevel %s\n" % (self.logLevelDict[self.param.logLevel])
+            buf += "\n"
             buf += "ListenAddress 0.0.0.0:%d\n" % (self.port)
             buf += "HostCertificate \"%s\"\n" % (self.certf)
             buf += "HostKey \"%s\"\n" % (self.keyf)
-            buf += "AuthorizedKeysFile \"%s\"" % (self.akeyf)
+#            buf += "AuthorizedKeysFile \"%s\"" % (self.akeyf)
             buf += "ChrootDirectory \"%s\"\n" % (self.rootDir)
             buf += "\n"
-            buf += "PermitRootLogin forced-commands-only\n"
+            buf += "PermitRootLogin yes\n"
             buf += "PasswordAuthentication no\n"
             buf += "KbdInteractiveAuthentication no\n"
             buf += "ChallengeResponseAuthentication no\n"
@@ -47,6 +61,8 @@ class SshService:
             cmd = ""
             cmd += "/usr/sbin/sshd -D -f \"%s\"" % (self.cfgf)
             self.proc = subprocess.Popen(cmd, shell=True, universal_newlines=True)
+
+            GbsUtil.waitTcpPort(self.port)
         except:
             self.stop()
             raise
@@ -63,7 +79,9 @@ class SshService:
     def getPort(self):
         return self.port
 
-
+    def getKey(self):
+        with open(self.keyf) as f:
+            return f.read()
 
 #$ scp foobar.example.org:/etc/ssh/ssh_host_rsa_key.pub foobar.pub
 #$ ssh-keygen -h                             \ # sign host key

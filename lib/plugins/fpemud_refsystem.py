@@ -24,7 +24,10 @@ class PluginObject:
                                            self.sessObj.sslSock.get_peer_certificate(),
                                            self.sessObj.mntDir, [])
         self.sshServ.start()
-        return {"return": {"ssh-port": self.sshServ.getPort()}}
+        return {
+            "ssh-port": self.sshServ.getPort(),
+            "ssh-key": self.sshServ.getKey(),
+        }
 
     def stage_2_end_handler(self):
         if hasattr(self, "sshServ"):
@@ -38,7 +41,7 @@ class PluginObject:
                                                self.sessObj.sslSock.get_peer_certificate(),
                                                self.sessObj.mntDir, False)
         self.rsyncServ.start()
-        return {"return": {"rsync-port": self.rsyncServ.getPort()}}
+        return {"rsync-port": self.rsyncServ.getPort()}
 
     def stage_3_end_handler(self):
         if hasattr(self, "rsyncServ"):

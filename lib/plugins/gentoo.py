@@ -22,9 +22,12 @@ class PluginObject:
         self.sshServ = self.api.SshService(self.param, self.sessObj.uuid,
                                            self.sessObj.sslSock.getpeername()[0],
                                            self.sessObj.sslSock.get_peer_certificate(),
-                                           self.sessObj.mntDir, [])
+                                           self.sessObj.mntDir, ["emerge .*"])
         self.sshServ.start()
-        return {"ssh-port": self.sshServ.getPort()}
+        return {
+            "ssh-port": self.sshServ.getPort(),
+            "ssh-key": self.sshServ.getKey(),
+        }
 
     def stage_2_end_handler(self):
         if hasattr(self, "sshServ"):

@@ -5,6 +5,7 @@ import os
 import re
 import pwd
 import grp
+import time
 import random
 import logging
 import shutil
@@ -57,21 +58,17 @@ class GbsUtil:
         raise Exception("No valid tcp port in [%d,%d]." % (start_port, end_port))
 
     @staticmethod
-    def getFreeTcpPorts(port_num, start_port=10000, end_port=65536):
-        ret = []
-        for port in range(start_port, end_port):
+    def waitTcpPort(port):
+        while True:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             try:
-                s.bind((('', port)))
-                ret.append(port)
-                if len(ret) >= port_num:
-                    return ret
-            except socket.error:
-                continue
-            finally:
+                s.connect(('127.0.0.1', port))
                 s.close()
-        raise Exception("Not enough valid tcp port in [%d,%d]." % (start_port, end_port))
-
+                break
+            except socket.error:
+                s.close()
+                time.sleep(1.0)
+        
     @staticmethod
     def copyToDir(srcFilename, dstdir, mode=None):
         """Copy file to specified directory, and set file mode if required"""

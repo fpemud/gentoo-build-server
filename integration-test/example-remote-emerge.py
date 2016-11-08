@@ -114,9 +114,29 @@ def syncUp(ip, port, certFile, keyFile):
         os.unlink("./stunnel.conf")
 
 
-def sshExec(ip, port, certFile, keyFile, argList):
+def sshExec(ip, port, key, argList):
+    with open("./ssh_identity", "w") as f:
+        f.write(key)
+    os.chmod("./ssh_identity", 0o700)
+
+    buf = ""
+#    buf += "LogLevel INFO\n"
+#    buf += "\n"
+    buf += "KbdInteractiveAuthentication no\n"
+    buf += "PasswordAuthentication no\n"
+    buf += "PubkeyAuthentication yes\n"
+    buf += "PreferredAuthentications publickey\n"
+    buf += "\n"
+    buf += "IdentityFile ./ssh_identity\n"
+    buf += "UserKnownHostsFile /dev/null\n"
+    buf += "StrictHostKeyChecking no\n"
+    buf += "\n"
+    with open("./ssh_config", "w") as f:
+        f.write(buf)
+
     cmd = ""
-    cmd += "/usr/bin/ssh -p %d %s emerge %s" % (port, ip, " ".join(argList))
+    cmd += "/usr/bin/ssh -p %d -F ./ssh_config %s set" % (port, ip)        # , " ".join(argList)
+    print(cmd)
     subprocess.Popen(cmd, shell=True, universal_newlines=True).wait()
 
 
@@ -220,7 +240,7 @@ if __name__ == "__main__":
         sys.exit(1)
     assert resp["return"]["stage"] == 2
 
-    sshExec(dstIp, resp["return"]["ssh-port"], "./cert.pem", "./privkey.pem", sys.argv[2:])
+    sshExec(dstIp, resp["return"]["ssh-port"], resp["return"]["ssh-key"], sys.argv[2:])
 
     print(">> Sync down.")
 
