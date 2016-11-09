@@ -68,7 +68,7 @@ class GbsUtil:
             except socket.error:
                 s.close()
                 time.sleep(1.0)
-        
+
     @staticmethod
     def copyToDir(srcFilename, dstdir, mode=None):
         """Copy file to specified directory, and set file mode if required"""
@@ -123,7 +123,7 @@ class GbsUtil:
 
     @staticmethod
     def isMountPoint(pathname):
-        buf = FmUtil.shell("/bin/mount", "stdout")
+        buf = GbsUtil.shell("/bin/mount", "stdout")
         found = False
         for line in buf.split("\n"):
             m = re.match("^(.*) on (.*) type ", line)

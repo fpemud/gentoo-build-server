@@ -4,7 +4,6 @@
 import os
 import re
 import uuid
-import glob
 from OpenSSL import crypto
 from gbs_util import GbsUtil
 import services.rsyncd
@@ -30,30 +29,118 @@ class GbsPluginApi:
     def __init__(self, sessObj):
         self.sessObj = sessObj
 
+        self.procDir = os.path.join(self.sessObj.mntDir, "proc")
+        self.sysDir = os.path.join(self.sessObj.mntDir, "sys")
+        self.devDir = os.path.join(self.sessObj.mntDir, "dev")
+        self.runDir = os.path.join(self.sessObj.mntDir, "run")
+        self.tmpDir = os.path.join(self.sessObj.mntDir, "tmp")
+        self.varDir = os.path.join(self.sessObj.mntDir, "var")
+        self.varTmpDir = os.path.join(self.varDir, "tmp")
+        self.homeDirForRoot = os.path.join(self.sessObj.mntDir, "root")
+        self.lostFoundDir = os.path.join(self.sessObj.mntDir, "lost+found")
+
+        self.hasHomeDirForRoot = False
+        self.hasVarDir = False
+
+    def getUuid(self):
+        return self.sessObj.uuid
+
+    def getCpuArch(self):
+        return self.sessObj.cpuArch
+
+    def getIpAddress(self):
+        return self.sessObj.sslSock.getpeername()[0]
+
+    def getCertificate(self):
+        return self.sessObj.sslSock.get_peer_certificate()
+
+    def getPublicKey(self):
+        return self.sessObj.pubkey
+
+    def getRootDir(self):
+        return self.sessObj.mntDir
+
     def prepareRoot(self):
-        procDir = os.path.join(self.sessObj.mntDir, "proc")
-        sysDir = os.path.join(self.sessObj.mntDir, "sys")
-        devDir = os.path.join(self.sessObj.mntDir, "dev")
-        runDir = os.path.join(self.sessObj.mntDir, "run")
-        tmpDir = os.path.join(self.sessObj.mntDir, "tmp")
+        if os.path.exists(self.procDir):
+            raise self.BusinessException("Redundant directory /proc is synced up")
+        if os.path.exists(self.sysDir):
+            raise self.BusinessException("Redundant directory /sys is synced up")
+        if os.path.exists(self.devDir):
+            raise self.BusinessException("Redundant directory /dev is synced up")
+        if os.path.exists(self.runDir):
+            raise self.BusinessException("Redundant directory /run is synced up")
+        if os.path.exists(self.tmpDir):
+            raise self.BusinessException("Redundant directory /tmp is synced up")
+        if os.path.exists(self.varTmpDir):
+            raise self.BusinessException("Redundant directory /var/tmp is synced up")
+        if os.path.exists(self.lostFoundDir):
+            raise self.BusinessException("Directory /lost+found should not exist")
+
         try:
-            GbsUtil.shell("/bin/mount -t proc proc %s" % (procDir), "stdout")
-            GbsUtil.shell("/bin/mount --rbind /sys %s" % (sysDir), "stdout")
-            GbsUtil.shell("/bin/mount --make-rslave %s" % (sysDir), "stdout")
-            GbsUtil.shell("/bin/mount --rbind /dev %s" % (devDir), "stdout")
-            GbsUtil.shell("/bin/mount --make-rslave %s" % (devDir), "stdout")
-            GbsUtil.shell("/bin/mount -t tmpfs tmpfs %s -o nosuid,nodev,mode=755" % (runDir), "stdout")
-            GbsUtil.shell("/bin/mount -t tmpfs tmpfs %s -o nosuid,nodev" % (tmpDir), "stdout")
+            os.mkdir(self.procDir)
+            GbsUtil.shell("/bin/mount -t proc proc %s" % (self.procDir), "stdout")
+
+            os.mkdir(self.sysDir)
+            GbsUtil.shell("/bin/mount --rbind /sys %s" % (self.sysDir), "stdout")
+            GbsUtil.shell("/bin/mount --make-rslave %s" % (self.sysDir), "stdout")
+
+            os.mkdir(self.devDir)
+            GbsUtil.shell("/bin/mount --rbind /dev %s" % (self.devDir), "stdout")
+            GbsUtil.shell("/bin/mount --make-rslave %s" % (self.devDir), "stdout")
+
+            os.mkdir(self.runDir)
+            GbsUtil.shell("/bin/mount -t tmpfs tmpfs %s -o nosuid,nodev,mode=755" % (self.runDir), "stdout")
+
+            os.mkdir(self.tmpDir)
+            os.chmod(self.tmpDir, 0o1777)
+            GbsUtil.shell("/bin/mount -t tmpfs tmpfs %s -o nosuid,nodev" % (self.tmpDir), "stdout")
+
+            if not os.path.exists(self.varDir):
+                os.mkdir(self.varDir)
+                self.hasVarDir = False
+            else:
+                self.hasVarDir = True
+
+            os.mkdir(self.varTmpDir)
+
+            if not os.path.exists(self.homeDirForRoot):
+                os.mkdir(self.homeDirForRoot)
+                os.chmod(self.homeDirForRoot, 0o700)
+                self.hasHomeDirForRoot = False
+            else:
+                self.hasHomeDirForRoot = True
         except:
             self.unPrepareRoot()
             raise
 
     def unPrepareRoot(self):
-        GbsUtil.shell("/bin/umount %s" % (os.path.join(self.sessObj.mntDir, "tmp")), "retcode+stdout")
-        GbsUtil.shell("/bin/umount %s" % (os.path.join(self.sessObj.mntDir, "run")), "retcode+stdout")
-        GbsUtil.shell("/bin/umount %s" % (os.path.join(self.sessObj.mntDir, "dev")), "retcode+stdout")
-        GbsUtil.shell("/bin/umount %s" % (os.path.join(self.sessObj.mntDir, "sys")), "retcode+stdout")
-        GbsUtil.shell("/bin/umount %s" % (os.path.join(self.sessObj.mntDir, "proc")), "retcode+stdout")
+        if not self.hasHomeDirForRoot:
+            GbsUtil.forceDelete(self.homeDirForRoot)
+
+        if not self.hasVarDir:
+            GbsUtil.forceDelete(self.varDir)
+        else:
+            GbsUtil.forceDelete(self.varTmpDir)
+
+        if os.path.exists(self.tmpDir):
+            GbsUtil.shell("/bin/umount -l %s" % (self.tmpDir), "retcode+stdout")
+            os.rmdir(self.tmpDir)
+
+        if os.path.exists(self.runDir):
+            GbsUtil.shell("/bin/umount -l %s" % (self.runDir), "retcode+stdout")
+            os.rmdir(self.runDir)
+
+        if os.path.exists(self.devDir):
+            GbsUtil.shell("/bin/umount -l %s" % (self.devDir), "retcode+stdout")
+            os.rmdir(self.devDir)
+
+        if os.path.exists(self.sysDir):
+            GbsUtil.shell("/bin/umount -l %s" % (self.sysDir), "retcode+stdout")
+            os.rmdir(self.sysDir)
+
+        if os.path.exists(self.procDir):
+            GbsUtil.shell("/bin/umount -l %s" % (self.procDir), "retcode+stdout")
+            os.rmdir(self.procDir)
 
 
 class GbsCommon:

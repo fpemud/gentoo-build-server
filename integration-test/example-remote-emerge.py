@@ -88,37 +88,31 @@ def syncUp(ip, port, certFile, keyFile):
 
     try:
         cmd = ""
-        cmd += "/usr/bin/rsync -a -v --delete --delete-excluded "
-        cmd += "-f '- /boot/***' "
-        cmd += "-f '- /dev/**' "
-        cmd += "-f '- /home/**' "
-        cmd += "-f '- /media/***' "
-        cmd += "-f '- /mnt/***' "
-        cmd += "-f '- /proc/**' "
-        cmd += "-f '- /root/**' "
-        cmd += "-f '- /run/**' "
-        cmd += "-f '- /sys/**' "
-        cmd += "-f '- /tmp/**' "
-        cmd += "-f '+ /var/lock' "
-        cmd += "-f '+ /var/run' "
+        cmd += "/usr/bin/rsync -a --delete --delete-excluded "
+        cmd += "-f '+ /bin/***' "
+        cmd += "-f '+ /etc/***' "
+        cmd += "-f '+ /lib' "             # /lib may be a symlink or directory
+        cmd += "-f '+ /lib/***' "
+        cmd += "-f '+ /lib32' "           # /lib may be a symlink or directory
+        cmd += "-f '+ /lib32/***' "
+        cmd += "-f '+ /lib64' "           # /lib may be a symlink or directory
+        cmd += "-f '+ /lib64/***' "
+        cmd += "-f '+ /opt/***' "
+        cmd += "-f '+ /sbin/***' "
+        cmd += "-f '+ /usr/***' "
+        cmd += "-f '+ /var' "
         cmd += "-f '+ /var/portage/***' "
+        cmd += "-f '+ /var/cache' "
+        cmd += "-f '+ /var/cache/edb/***' "
         cmd += "-f '+ /var/db' "
         cmd += "-f '+ /var/db/pkg/***' "
         cmd += "-f '+ /var/lib' "
         cmd += "-f '+ /var/lib/portage/***' "
-        cmd += "-f '- /var/**' "
+        cmd += "-f '- /**' "
         cmd += "/ rsync://127.0.0.1/main"
         ret = subprocess.Popen(cmd, shell=True, universal_newlines=True).wait()
         if ret != 0:
             raise Exception("syncup failed")
-
-        dirList = []
-        for dir in dirList:
-            cmd = ""
-            cmd += "/usr/bin/rsync -a -v --delete %s rsync://127.0.0.1/main/%s" % (dir, dir)
-            ret = subprocess.Popen(cmd, shell=True, universal_newlines=True).wait()
-            if ret != 0:
-                raise Exception("syncup failed")
     finally:
         proc.terminate()
         proc.wait()
@@ -149,7 +143,7 @@ def sshExec(ip, port, key, argList):
     subprocess.Popen(cmd, shell=True, universal_newlines=True).wait()
 
 
-def syncDown(ip, port, certFile, keyFile):
+def syncDown(ip, port, extraPatternList, certFile, keyFile):
     buf = ""
     buf += "cert = %s\n" % (certFile)
     buf += "key = %s\n" % (keyFile)
@@ -163,33 +157,51 @@ def syncDown(ip, port, certFile, keyFile):
     with open("./stunnel.conf", "w") as f:
         f.write(buf)
 
-    buf = ""
-    buf += "/boot\n"
-    buf += "/dev/*\n"
-    buf += "/proc/*\n"
-    buf += "/sys/*\n"
-    buf += "/root/*\n"
-    buf += "/home/*\n"
-    buf += "/media\n"
-    buf += "/mnt\n"
-    buf += "/run/*\n"
-    buf += "/var/*\n"
-    buf += "/tmp/*\n"
-    with open("./exclude.rsync", "w") as f:
-        f.write(buf)
-
     cmd = ""
     cmd += "/usr/sbin/stunnel ./stunnel.conf >/dev/null 2>&1"
     proc = subprocess.Popen(cmd, shell=True, universal_newlines=True)
 
     cmd = ""
-    cmd += "/usr/bin/rsync -a --dry-run -v --exclude-from=./exclude.rsync rsync://127.0.0.1/main /"
-    subprocess.Popen(cmd, shell=True, universal_newlines=True).wait()
+    cmd += "/usr/bin/rsync -a --delete "
+    cmd += "-f '+ /bin/***' "
+    cmd += "-f '+ /etc/***' "
+    cmd += "-f '+ /lib' "             # /lib may be a symlink or directory
+    cmd += "-f '+ /lib/***' "
+    cmd += "-f '+ /lib32' "           # /lib may be a symlink or directory
+    cmd += "-f '+ /lib32/***' "
+    cmd += "-f '+ /lib64' "           # /lib may be a symlink or directory
+    cmd += "-f '+ /lib64/***' "
+    cmd += "-f '+ /opt/***' "
+    cmd += "-f '+ /sbin/***' "
+    cmd += "-f '+ /usr/***' "
+    cmd += "-f '+ /var' "
+    cmd += "-f '+ /var/portage/***' "
+    cmd += "-f '+ /var/cache' "
+    cmd += "-f '+ /var/cache/edb/***' "
+    cmd += "-f '+ /var/db' "
+    cmd += "-f '+ /var/db/pkg/***' "
+    cmd += "-f '+ /var/lib' "
+    cmd += "-f '+ /var/lib/portage/***' "
+    cmd += "-f '- /**' "
+    cmd += "rsync://127.0.0.1/main /"
+    ret = subprocess.Popen(cmd, shell=True, universal_newlines=True).wait()
+    if ret != 0:
+        raise Exception("syncup failed")
+
+    cmd = ""
+    cmd += "/usr/bin/rsync -a"
+    for p in extraPatternList:
+        cmd += "-f '+ %s' " % (p)
+    cmd += "-f '- /**' "
+    cmd += "rsync://127.0.0.1/main /"
+    print(cmd)
+    ret = subprocess.Popen(cmd, shell=True, universal_newlines=True).wait()
+    if ret != 0:
+        raise Exception("syncup failed")
 
     proc.terminate()
     proc.wait()
 
-    os.unlink("./exclude.rsync")
     os.unlink("./stunnel.conf")
 
 
@@ -262,4 +274,4 @@ if __name__ == "__main__":
         sys.exit(1)
     assert resp["return"]["stage"] == 3
 
-    syncDown(dstIp, resp["return"]["rsync-port"], "./cert.pem", "./privkey.pem")
+    syncDown(dstIp, resp["return"]["rsync-port"], resp["return"]["extra-patterns"], "./cert.pem", "./privkey.pem")
