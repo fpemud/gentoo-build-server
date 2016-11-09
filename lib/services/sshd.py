@@ -38,8 +38,6 @@ class SshService:
 
             self.port = GbsUtil.getFreeTcpPort()
 
-            GbsUtil.shell("/bin/chroot " + self.rootDir + " /bin/ls /root -la")
-
             buf = ""
             buf += "LogLevel %s\n" % (self.logLevelDict[self.param.logLevel])
             buf += "\n"

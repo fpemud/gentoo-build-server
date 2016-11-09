@@ -82,35 +82,46 @@ def syncUp(ip, port, certFile, keyFile):
     with open("./stunnel.conf", "w") as f:
         f.write(buf)
 
-    buf = ""
-    buf += "/boot\n"
-    buf += "/dev/*\n"
-    buf += "/proc/*\n"
-    buf += "/sys/*\n"
-    buf += "/root/*\n"
-    buf += "/home/*\n"
-    buf += "/media\n"
-    buf += "/mnt\n"
-    buf += "/run/*\n"
-    buf += "/var/*\n"
-    buf += "/tmp/*\n"
-    with open("./exclude.rsync", "w") as f:
-        f.write(buf)
-
     cmd = ""
     cmd += "/usr/sbin/stunnel ./stunnel.conf >/dev/null 2>&1"
     proc = subprocess.Popen(cmd, shell=True, universal_newlines=True)
 
     try:
         cmd = ""
-        cmd += "/usr/bin/rsync -a -v --delete --exclude-from=./exclude.rsync / rsync://127.0.0.1/main"
+        cmd += "/usr/bin/rsync -a -v --delete --delete-excluded "
+        cmd += "-f '- /boot/***' "
+        cmd += "-f '- /dev/**' "
+        cmd += "-f '- /home/**' "
+        cmd += "-f '- /media/***' "
+        cmd += "-f '- /mnt/***' "
+        cmd += "-f '- /proc/**' "
+        cmd += "-f '- /root/**' "
+        cmd += "-f '- /run/**' "
+        cmd += "-f '- /sys/**' "
+        cmd += "-f '- /tmp/**' "
+        cmd += "-f '+ /var/lock' "
+        cmd += "-f '+ /var/run' "
+        cmd += "-f '+ /var/portage/***' "
+        cmd += "-f '+ /var/db' "
+        cmd += "-f '+ /var/db/pkg/***' "
+        cmd += "-f '+ /var/lib' "
+        cmd += "-f '+ /var/lib/portage/***' "
+        cmd += "-f '- /var/**' "
+        cmd += "/ rsync://127.0.0.1/main"
         ret = subprocess.Popen(cmd, shell=True, universal_newlines=True).wait()
         if ret != 0:
             raise Exception("syncup failed")
+
+        dirList = []
+        for dir in dirList:
+            cmd = ""
+            cmd += "/usr/bin/rsync -a -v --delete %s rsync://127.0.0.1/main/%s" % (dir, dir)
+            ret = subprocess.Popen(cmd, shell=True, universal_newlines=True).wait()
+            if ret != 0:
+                raise Exception("syncup failed")
     finally:
         proc.terminate()
         proc.wait()
-        os.unlink("./exclude.rsync")
         os.unlink("./stunnel.conf")
 
 
@@ -120,8 +131,6 @@ def sshExec(ip, port, key, argList):
     os.chmod("./ssh_identity", 0o700)
 
     buf = ""
-#    buf += "LogLevel INFO\n"
-#    buf += "\n"
     buf += "KbdInteractiveAuthentication no\n"
     buf += "PasswordAuthentication no\n"
     buf += "PubkeyAuthentication yes\n"
@@ -135,7 +144,7 @@ def sshExec(ip, port, key, argList):
         f.write(buf)
 
     cmd = ""
-    cmd += "/usr/bin/ssh -p %d -F ./ssh_config %s set" % (port, ip)        # , " ".join(argList)
+    cmd += "/usr/bin/ssh -t -p %d -F ./ssh_config %s emerge %s" % (port, ip, " ".join(argList))
     print(cmd)
     subprocess.Popen(cmd, shell=True, universal_newlines=True).wait()
 
