@@ -3,7 +3,7 @@ Description=syncupd
 After=network.target
 
 [Service]
-Type=fork
+Type=forking
 PIDFile=/run/syncupd/syncupd.pid
 ExecStart=/usr/sbin/syncupd
 ExecReload=/bin/kill -HUP $MAINPID
