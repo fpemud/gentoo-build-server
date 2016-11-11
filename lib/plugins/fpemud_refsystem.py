@@ -10,14 +10,9 @@ class PluginObject:
     def __init__(self, param, api):
         self.param = param
         self.api = api
-        self.mode = None
 
     def init_handler(self, requestObj):
-        if "mode" not in requestObj:
-            raise self.api.ProtocolException("Missing \"mode\" in init command")
-        if requestObj["mode"] not in ["fpemud-refsystem-update"]:
-            raise self.api.ProtocolException("Invalid \"mode\" in init command")
-        self.mode = requestObj["mode"]
+        pass
 
     def stage_2_start_handler(self):
         self._check_root()
@@ -37,6 +32,55 @@ class PluginObject:
         self.api.unPrepareRoot()
 
     def stage_3_start_handler(self):
+        self._check_root()
+
+        kernelBuilt = None
+        verstr = None
+        postfix = None
+        if True:
+            with open("/result.txt", "r") as f:
+                lines = f.readlines()
+                assert len(lines) == 3
+                kernelBuilt = bool(lines[0])
+                verstr = lines[1]
+                postfix = lines[2]
+            os.unlink("/result.txt")
+
+        self.rsyncServ = self.api.RsyncService(self.param, self.api.getUuid(), self.api.getIpAddress(),
+                                               self.api.getCertificate(), self.api.getRootDir(), False)
+        self.rsyncServ.start()
+
+        return {
+            "rsync-port": self.rsyncServ.getPort(),
+            "kernel-built": kernelBuilt,
+            "verstr": verstr,
+            "postfix": postfix,
+        }
+
+    def stage_3_end_handler(self):
+        if hasattr(self, "rsyncServ"):
+            self.rsyncServ.stop()
+            del self.rsyncServ
+        shutil.rmtree("/boot")
+
+    def stage_4_start_handler(self):
+        self._check_root()
+        self.api.prepareRoot()
+        self.sshServ = self.api.SshService(self.param, self.api.getUuid(), self.api.getIpAddress(),
+                                           self.api.getCertificate(), self.api.getRootDir(), [])
+        self.sshServ.start()
+        return {
+            "ssh-port": self.sshServ.getPort(),
+            "ssh-key": self.sshServ.getKey(),
+        }
+
+    def stage_4_end_handler(self):
+        if hasattr(self, "sshServ"):
+            self.sshServ.stop()
+            del self.sshServ
+        self.api.unPrepareRoot()
+
+    def stage_5_start_handler(self):
         self._remove_var_files()
         self._check_root()
         self.rsyncServ = self.api.RsyncService(self.param, self.api.getUuid(), self.api.getIpAddress(),
@@ -44,7 +88,7 @@ class PluginObject:
         self.rsyncServ.start()
         return {"rsync-port": self.rsyncServ.getPort()}
 
-    def stage_3_end_handler(self):
+    def stage_5_end_handler(self):
         if hasattr(self, "rsyncServ"):
             self.rsyncServ.stop()
             del self.rsyncServ
