@@ -9,56 +9,33 @@ class PluginObject:
     def __init__(self, param, api):
         self.param = param
         self.api = api
-        self.mode = None
 
     def init_handler(self, requestObj):
-        if "mode" not in requestObj:
-            raise self.api.ProtocolException("Missing \"mode\" in init command")
-        if requestObj["mode"] not in ["emerge+sync", "emerge+binpkg"]:
-            raise self.api.ProtocolException("Invalid \"mode\" in init command")
-        self.mode = requestObj["mode"]
+        pass
 
     def stage_2_start_handler(self):
         self._check_root()
         self.api.prepareRoot()
-        self.sshServ = self.api.SshService(self.param, self.api.getUuid(), self.api.getIpAddress(),
-                                           self.api.getCertificate(), self.api.getRootDir(), ["emerge .*"])
-        self.sshServ.start()
+        port, key = self.api.startSshService(["emerge *"])
         return {
-            "ssh-port": self.sshServ.getPort(),
-            "ssh-key": self.sshServ.getKey(),
+            "ssh-port": port,
+            "ssh-key": key,
         }
 
     def stage_2_end_handler(self):
-        if hasattr(self, "sshServ"):
-            self.sshServ.stop()
-            del self.sshServ
+        self.api.stopSshService()
         self.api.unPrepareRoot()
 
     def stage_3_start_handler(self):
         self._check_root()
-        if self.mode == "emerge+sync":
-            self.rsyncServ = self.api.RsyncService(self.param, self.api.getUuid(), self.api.getIpAddress(),
-                                                   self.api.getCertificate(), self.api.getRootDir(), False)
-            self.rsyncServ.start()
-            return {
-                "rsync-port": self.rsyncServ.getPort(),
-                "extra-patterns": self._get_extra_patterns(),
-            }
-        elif self.mode == "emerge+binpkg":
-            assert False
-        else:
-            assert False
+        port = self.api.startSyncDownService()
+        return {
+            "rsync-port": port,
+            "extra-patterns": self._get_extra_patterns(),
+        }
 
     def stage_3_end_handler(self):
-        if self.mode == "emerge+sync":
-            if hasattr(self, "rsyncServ"):
-                self.rsyncServ.stop()
-                del self.rsyncServ
-        elif self.mode == "emerge+binpkg":
-            assert False
-        else:
-            assert False
+        self.api.stopSyncDownService()
 
     def disconnect_handler(self):
         pass

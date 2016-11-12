@@ -17,81 +17,58 @@ class PluginObject:
     def stage_2_start_handler(self):
         self._check_root()
         self.api.prepareRoot()
-        self.sshServ = self.api.SshService(self.param, self.api.getUuid(), self.api.getIpAddress(),
-                                           self.api.getCertificate(), self.api.getRootDir(), [])
-        self.sshServ.start()
+        port, key = self.api.startSshService([])
         return {
-            "ssh-port": self.sshServ.getPort(),
-            "ssh-key": self.sshServ.getKey(),
+            "ssh-port": port,
+            "ssh-key": key,
         }
 
     def stage_2_end_handler(self):
-        if hasattr(self, "sshServ"):
-            self.sshServ.stop()
-            del self.sshServ
+        self.api.stopSshService()
         self.api.unPrepareRoot()
 
     def stage_3_start_handler(self):
         self._check_root()
 
-        kernelBuilt = None
-        verstr = None
-        postfix = None
-        if True:
-            with open("/result.txt", "r") as f:
-                lines = f.readlines()
-                assert len(lines) == 3
-                kernelBuilt = bool(lines[0])
-                verstr = lines[1]
-                postfix = lines[2]
-            os.unlink("/result.txt")
+        with open("/result.txt", "r") as f:
+            lines = [x.rstrip() for x in f.readlines()]
+            assert len(lines) == 3
+        os.unlink("/result.txt")
 
-        self.rsyncServ = self.api.RsyncService(self.param, self.api.getUuid(), self.api.getIpAddress(),
-                                               self.api.getCertificate(), self.api.getRootDir(), False)
-        self.rsyncServ.start()
+        port = self.api.startSyncDownService()
 
         return {
-            "rsync-port": self.rsyncServ.getPort(),
-            "kernel-built": kernelBuilt,
-            "verstr": verstr,
-            "postfix": postfix,
+            "rsync-port": port,
+            "kernel-built": bool(lines[0]),
+            "verstr": lines[1],
+            "postfix": lines[2],
         }
 
     def stage_3_end_handler(self):
-        if hasattr(self, "rsyncServ"):
-            self.rsyncServ.stop()
-            del self.rsyncServ
+        self.api.stopSyncDownService()
         shutil.rmtree("/boot")
 
     def stage_4_start_handler(self):
         self._check_root()
         self.api.prepareRoot()
-        self.sshServ = self.api.SshService(self.param, self.api.getUuid(), self.api.getIpAddress(),
-                                           self.api.getCertificate(), self.api.getRootDir(), [])
-        self.sshServ.start()
+        port, key = self.api.startSshService([])
         return {
-            "ssh-port": self.sshServ.getPort(),
-            "ssh-key": self.sshServ.getKey(),
+            "ssh-port": port,
+            "ssh-key": key,
         }
 
     def stage_4_end_handler(self):
-        if hasattr(self, "sshServ"):
-            self.sshServ.stop()
-            del self.sshServ
+        self.api.stopSshService()
         self.api.unPrepareRoot()
 
     def stage_5_start_handler(self):
         self._remove_var_files()
         self._check_root()
-        self.rsyncServ = self.api.RsyncService(self.param, self.api.getUuid(), self.api.getIpAddress(),
-                                               self.api.getCertificate(), self.api.getRootDir(), False)
-        self.rsyncServ.start()
-        return {"rsync-port": self.rsyncServ.getPort()}
+        port = self.api.startSyncDownService()
+        return {"rsync-port": port}
 
     def stage_5_end_handler(self):
-        if hasattr(self, "rsyncServ"):
-            self.rsyncServ.stop()
-            del self.rsyncServ
+        self.api.stopSyncDownService()
 
     def disconnect_handler(self):
         pass
