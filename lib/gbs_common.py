@@ -6,8 +6,8 @@ import re
 import uuid
 from OpenSSL import crypto
 from gbs_util import GbsUtil
-import services.rsyncd
-import services.sshd
+import services.rsyncd import RsyncService
+import services.sshd import SshService
 
 
 class GbsProtocolException(Exception):
@@ -22,9 +22,6 @@ class GbsPluginApi:
 
     ProtocolException = GbsProtocolException
     BusinessException = GbsBusinessException
-
-    RsyncService = services.rsyncd.RsyncService
-    SshService = services.sshd.SshService
 
     def __init__(self, sessObj):
         self.sessObj = sessObj

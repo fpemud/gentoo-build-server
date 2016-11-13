@@ -167,8 +167,12 @@ class GbsCtrlSession:
             raise GbsProtocolException("Unknown command")
 
     def cmdInit(self, requestObj):
-        logging.debug("Control Server: Init command received from client \"UUID:%s\"." % (self.uuid))
         try:
+            if self.stage is not None:
+                raise GbsProtocolException("Init command out of order")
+
+            logging.debug("Control Server: Init command received from client \"UUID:%s\"." % (self.uuid))
+
             if "cpu-arch" not in requestObj:
                 raise GbsProtocolException("Missing \"cpu-arch\" in init command")
             self.cpuArch = requestObj["cpu-arch"]
@@ -182,8 +186,6 @@ class GbsCtrlSession:
 
             self.mntDir = GbsCommon.systemMountDisk(self.parent.param, self.uuid)
 
-            self.stage = 0
-
             if "plugin" not in requestObj:
                 raise GbsProtocolException("Missing \"plugin\" in init command")
             pyfname = requestObj["plugin"].replace("-", "_")
@@ -191,6 +193,7 @@ class GbsCtrlSession:
             self.plugin = eval("plugins.%s.PluginObject(self.parent.param, GbsPluginApi(self))" % (pyfname))
             self.plugin.init_handler(requestObj)
 
+            self.stage = 0
             logging.debug("Control Server: Init command processed from client \"UUID:%s\", plugin %s." % (self.uuid, requestObj["plugin"]))
             return {"return": {}}
         except Exception as e:
@@ -200,31 +203,36 @@ class GbsCtrlSession:
             return {"error": str(e)}
 
     def cmdStage(self, requestObj):
-        logging.debug("Control Server: Stage command received from client \"UUID:%s\", stage:%d." % (self.uuid, self.stage))
-
-        # stage end processing
-        if self.stage == 0:
-            pass
-        elif self.stage == 1:
-            self._stage1EndHandler()
-        else:
-            self._invokePluginStageEndHandler(self.stage)
-
-        # stage start processing
-        self.stage += 1
         try:
-            ret = None
-            if self.stage == 1:
-                ret = self._stage1StartHandler()
-            elif self.stage > 1:
-                ret = self._invokePluginStageStartHandler(self.stage)
+            if self.stage is None:
+                raise GbsProtocolException("Stage command out of order")
+
+            logging.debug("Control Server: Stage command received from client \"UUID:%s\", stage:%d." % (self.uuid, self.stage))
+
+            # stage end processing
+            if self.stage == 0:
+                pass
+            elif self.stage == 1:
+                self._stage1EndHandler()
             else:
-                assert False
-            logging.debug("Control Server: Stage command processed from client \"UUID:%s\", stage:%d." % (self.uuid, self.stage))
-            return self._formatStageReturn(ret)
+                self._invokePluginStageEndHandler(self.stage)
+
+            # stage start processing
+            self.stage += 1
+            try:
+                ret = None
+                if self.stage == 1:
+                    ret = self._stage1StartHandler()
+                elif self.stage > 1:
+                    ret = self._invokePluginStageStartHandler(self.stage)
+                else:
+                    assert False
+                logging.debug("Control Server: Stage command processed from client \"UUID:%s\", stage:%d." % (self.uuid, self.stage))
+                return self._formatStageReturn(ret)
+            except:
+                self.stage -= 1
         except Exception as e:
             logging.exception("Control Server: Stage command error %s from client \"UUID:%s\"." % (str(e), self.uuid))
-            self.stage -= 1
             return {"error": str(e)}
 
     def cmdQuit(self, requestObj):
