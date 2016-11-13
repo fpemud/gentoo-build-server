@@ -190,7 +190,7 @@ class GbsCtrlSession:
                 raise GbsProtocolException("Missing \"plugin\" in init command")
             pyfname = requestObj["plugin"].replace("-", "_")
             exec("import plugins.%s" % (pyfname))
-            self.plugin = eval("plugins.%s.PluginObject(self.parent.param, GbsPluginApi(self))" % (pyfname))
+            self.plugin = eval("plugins.%s.PluginObject(self.parent.param, GbsPluginApi(self.parent.param, self))" % (pyfname))
             self.plugin.init_handler(requestObj)
 
             self.stage = 0

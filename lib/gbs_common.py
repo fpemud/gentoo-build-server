@@ -23,7 +23,8 @@ class GbsPluginApi:
     ProtocolException = GbsProtocolException
     BusinessException = GbsBusinessException
 
-    def __init__(self, sessObj):
+    def __init__(self, param, sessObj):
+        self.param = param
         self.sessObj = sessObj
 
         self.procDir = os.path.join(self.sessObj.mntDir, "proc")
@@ -140,8 +141,8 @@ class GbsPluginApi:
             os.rmdir(self.procDir)
 
     def startSshService(self, cmdPatternAllowed):
-        self.sshServ = self.SshService(self.param, self.getUuid(), self.getIpAddress(),
-                                       self.getCertificate(), self.getRootDir(), cmdPatternAllowed)
+        self.sshServ = SshService(self.param, self.getUuid(), self.getIpAddress(),
+                                  self.getCertificate(), self.getRootDir(), cmdPatternAllowed)
         self.sshServ.start()
         return (self.sshServ.getPort(), self.sshServ.getKey())
 
@@ -151,8 +152,8 @@ class GbsPluginApi:
             del self.sshServ
 
     def startSyncDownService(self):
-        self.rsyncServ = self.api.RsyncService(self.param, self.getUuid(), self.getIpAddress(),
-                                               self.getCertificate(), self.getRootDir(), False)
+        self.rsyncServ = RsyncService(self.param, self.getUuid(), self.getIpAddress(),
+                                      self.getCertificate(), self.getRootDir(), False)
         self.rsyncServ.start()
         return self.rsyncServ.getPort()
 

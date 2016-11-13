@@ -76,10 +76,10 @@ class PluginObject:
     def _check_root(self):
         # (code is ugly)
         # should contain and ONLY contain the following directories:
-        # "/bin", "/etc", "/lib", "/lib32", "/lib64", "/opt", "/sbin", "/usr", "/var/cache/edb", "/var/db/pkg", "/var/lib/portage", "/var/portage"
+        # "/bin", "/boot", "/etc", "/lib", "/lib32", "/lib64", "/opt", "/sbin", "/usr", "/var/cache/edb", "/var/db/pkg", "/var/lib/portage", "/var/portage"
 
         flist = os.listdir(self.api.getRootDir())
-        for f in ["bin", "etc", "lib", "opt", "sbin", "usr", "var"]:
+        for f in ["bin", "boot", "etc", "lib", "opt", "sbin", "usr", "var"]:
             try:
                 flist.remove(f)
             except ValueError:

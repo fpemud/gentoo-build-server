@@ -44,13 +44,13 @@ class PluginObject:
         # should contain the following directories:
         # "/bin", "/etc", "/lib", "/opt", "/sbin", "/usr", "/var/db/pkg", "/var/lib/portage"
         # should NOT contain the following directories:
-        # "/boot", "/home", "/root"
+        # /home", "/root"
 
         for f in ["bin", "etc", "lib", "opt", "sbin", "usr", "var/db/pkg", "/var/lib/portage"]:
             if not os.path.exists(os.path.join(self.api.getRootDir(), f)):
                 raise self.api.BusinessException("Directory /%s is not synced up" % (f))
 
-        for f in ["boot", "home", "root"]:
+        for f in ["home", "root"]:
             if os.path.exists(os.path.join(self.api.getRootDir(), f)):
                 raise self.api.BusinessException("Redundant directory /%s is synced up" % (f))
 
