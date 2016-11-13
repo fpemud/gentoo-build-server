@@ -28,10 +28,11 @@ class PluginObject:
         self.api.unPrepareRoot()
 
     def stage_3_start_handler(self):
-        with open("/result.txt", "r") as f:
+        resultFile = os.path.join(self.api.getRootDir(), "result.txt")
+        with open(resultFile, "r") as f:
             lines = [x.rstrip() for x in f.readlines()]
             assert len(lines) == 3
-        os.unlink("/result.txt")
+        os.unlink(resultFile)
 
         self._check_root()
         port = self.api.startSyncDownService()
@@ -44,7 +45,6 @@ class PluginObject:
 
     def stage_3_end_handler(self):
         self.api.stopSyncDownService()
-        shutil.rmtree("/boot")
 
     def stage_4_start_handler(self):
         self._check_root()
