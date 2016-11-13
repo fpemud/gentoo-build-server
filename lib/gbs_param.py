@@ -22,7 +22,7 @@ class GbsParam:
         self.keySize = 1024
         self.imageSizeUnit = 1024 * 1024 * 1024                         # 1GB
         self.maxImageSize = 500                                         # 500GB
-        self.defaultImageSize = 50                                      # 50GB
+        self.defaultImageSize = 200                                     # 200GB
 
         self.ctrlPort = 2108
         self.pidFile = os.path.join(self.runDir, "syncupd.pid")

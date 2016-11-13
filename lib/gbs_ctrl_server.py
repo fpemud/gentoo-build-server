@@ -231,6 +231,7 @@ class GbsCtrlSession:
                 return self._formatStageReturn(ret)
             except:
                 self.stage -= 1
+                raise
         except Exception as e:
             logging.exception("Control Server: Stage command error %s from client \"UUID:%s\"." % (str(e), self.uuid))
             return {"error": str(e)}
