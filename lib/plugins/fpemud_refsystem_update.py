@@ -28,15 +28,13 @@ class PluginObject:
         self.api.unPrepareRoot()
 
     def stage_3_start_handler(self):
-        self._check_root()
-
         with open("/result.txt", "r") as f:
             lines = [x.rstrip() for x in f.readlines()]
             assert len(lines) == 3
         os.unlink("/result.txt")
 
+        self._check_root()
         port = self.api.startSyncDownService()
-
         return {
             "rsync-port": port,
             "kernel-built": bool(lines[0]),
