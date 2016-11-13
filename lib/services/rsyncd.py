@@ -93,8 +93,6 @@ class RsyncService:
 
     def _runStunnelDaemon(self):
         buf = ""
-        buf += "syslog = no\n"
-        buf += "\n"
         buf += "cert = %s\n" % (self.param.certFile)
         buf += "key = %s\n" % (self.param.privkeyFile)
         buf += "RNDfile = %s\n" % (self.stunnelRndFile)
