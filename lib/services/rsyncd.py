@@ -65,8 +65,7 @@ class RsyncService:
     #         os.fchmod(f.fileno(), 0o644)
 
     def _runRsyncDeamon(self):
-        with open(self.rsyncdLogFile, "w") as f:
-            pass   # rsync requires that log files exist at first, ugly
+        GbsUtil.touchFile(self.rsyncdLogFile)   # rsync requires that log files exist at first, ugly
 
         buf = ""
         buf += "log file = \"%s\"\n" % (self.rsyncdLogFile)
