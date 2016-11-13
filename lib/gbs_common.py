@@ -6,8 +6,8 @@ import re
 import uuid
 from OpenSSL import crypto
 from gbs_util import GbsUtil
-import services.rsyncd import RsyncService
-import services.sshd import SshService
+from services.rsyncd import RsyncService
+from services.sshd import SshService
 
 
 class GbsProtocolException(Exception):
