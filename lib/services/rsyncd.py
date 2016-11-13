@@ -68,7 +68,7 @@ class RsyncService:
         buf = ""
         buf += "log file = \"%s\"\n" % (self.rsyncdLogFile)
         buf += "\n"
-        buf += "port %s" % (self.rsyncPort)
+        buf += "port %s\n" % (self.rsyncPort)
         buf += "max connections = 1\n"
         buf += "timeout = 600\n"
         buf += "hosts allow = 127.0.0.1\n"
