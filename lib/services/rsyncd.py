@@ -65,11 +65,7 @@ class RsyncService:
     #         os.fchmod(f.fileno(), 0o644)
 
     def _runRsyncDeamon(self):
-        GbsUtil.touchFile(self.rsyncdLogFile)   # rsync requires that log files exist at first, ugly
-
         buf = ""
-        buf += "log file = \"%s\"\n" % (self.rsyncdLogFile)
-        buf += "\n"
         buf += "port = %s\n" % (self.rsyncPort)
         buf += "max connections = 1\n"
         buf += "timeout = 600\n"
