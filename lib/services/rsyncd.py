@@ -53,7 +53,6 @@ class RsyncService:
         GbsUtil.forceDelete(self.stunnelRndFile)
         GbsUtil.forceDelete(self.stunnelCfgFile)
         GbsUtil.forceDelete(self.stunnelClientCertFile)
-        GbsUtil.forceDelete(self.rsyncdLogFile)
         GbsUtil.forceDelete(self.rsyncdCfgFile)
 
     def getPort(self):
