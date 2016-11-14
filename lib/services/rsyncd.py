@@ -17,11 +17,11 @@ class RsyncService:
         self.upOrDown = upOrDown
 
         self.rsyncdCfgFile = os.path.join(self.param.tmpDir, uuid + "-rsyncd.conf")
-        self.rsyncdLogFile = os.path.join(self.param.tmpDir, uuid + "-rsyncd.log")
+        self.rsyncdLogFile = os.path.join(self.param.logDir, uuid + "-rsyncd.log")
         self.stunnelClientCertFile = os.path.join(self.param.tmpDir, uuid + "-cert.pem")
         self.stunnelCfgFile = os.path.join(self.param.tmpDir, uuid + "-stunnel.conf")
-        self.stunnelRndFile = os.path.join(self.param.tmpDir, uuid + "-rnd")
-        self.stunnelLogFile = os.path.join(self.param.logDir, uuid + ".log")
+        self.stunnelRndFile = os.path.join(self.param.tmpDir, uuid + "-stunnel.rnd")
+        self.stunnelLogFile = os.path.join(self.param.logDir, uuid + "-stunnel.log")
 
         self.rsyncPort = None
         self.stunnelPort = None
@@ -67,6 +67,8 @@ class RsyncService:
 
     def _runRsyncDeamon(self):
         buf = ""
+        buf += "log file = %s\n" % (self.rsyncdLogFile)
+        buf += "\n"
         buf += "port = %s\n" % (self.rsyncPort)
         buf += "max connections = 1\n"
         buf += "timeout = 600\n"
@@ -89,7 +91,7 @@ class RsyncService:
 
     def _runStunnelDaemon(self):
         buf = ""
-        buf += "output = %s\n" % ()
+        buf += "output = %s\n" % (self.stunnelLogFile)
         buf += "\n"
         buf += "cert = %s\n" % (self.param.certFile)
         buf += "key = %s\n" % (self.param.privkeyFile)

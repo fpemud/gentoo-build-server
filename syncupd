@@ -32,7 +32,10 @@ try:
         param.pidFile = parseResult.pid_file
     param.logLevel = parseResult.debug_level
 
-    # create directories
+    # create logDir
+    GbsUtil.ensureDir(param.logDir)
+
+    # create tmpDir
     param.tmpDir = tempfile.mkdtemp(prefix="syncupd-")
     GbsUtil.chown(param.tmpDir, param.user, param.group)
 
