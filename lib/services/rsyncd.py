@@ -106,6 +106,6 @@ class RsyncService:
             f.write(buf)
 
         cmd = ""
-        cmd += "/usr/sbin/stunnel \"%s\"" % (self.stunnelCfgFile)
+        cmd += "/usr/sbin/stunnel \"%s\" 2>/dev/null" % (self.stunnelCfgFile)
         proc = subprocess.Popen(cmd, shell=True, universal_newlines=True)
         return proc
