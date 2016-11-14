@@ -21,6 +21,7 @@ class RsyncService:
         self.stunnelClientCertFile = os.path.join(self.param.tmpDir, uuid + "-cert.pem")
         self.stunnelCfgFile = os.path.join(self.param.tmpDir, uuid + "-stunnel.conf")
         self.stunnelRndFile = os.path.join(self.param.tmpDir, uuid + "-rnd")
+        self.stunnelLogFile = os.path.join(self.param.logDir, uuid + ".log")
 
         self.rsyncPort = None
         self.stunnelPort = None
@@ -88,6 +89,8 @@ class RsyncService:
 
     def _runStunnelDaemon(self):
         buf = ""
+        buf += "output = %s\n" % ()
+        buf += "\n"
         buf += "cert = %s\n" % (self.param.certFile)
         buf += "key = %s\n" % (self.param.privkeyFile)
         buf += "RNDfile = %s\n" % (self.stunnelRndFile)
@@ -96,7 +99,7 @@ class RsyncService:
         buf += "foreground = yes\n"
         buf += "\n"
         buf += "[rsync]\n"
-        buf += "accept = %d\n" % (self.stunnelPort)
+        buf += "accept = 0.0.0.0:%d\n" % (self.stunnelPort)
         buf += "connect = 127.0.0.1:%d\n" % (self.rsyncPort)
         with open(self.stunnelCfgFile, "w") as f:
             f.write(buf)
