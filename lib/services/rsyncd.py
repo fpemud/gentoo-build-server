@@ -32,12 +32,11 @@ class RsyncService:
     def start(self):
         try:
             self.rsyncPort = GbsUtil.getFreeTcpPort()
-            self.stunnelPort = GbsUtil.getFreeTcpPort()
-
             self.rsyncProc = self._runRsyncDeamon()
-            self.stunnelProc = self._runStunnelDaemon()
-
             GbsUtil.waitTcpPort(self.rsyncPort)
+
+            self.stunnelPort = GbsUtil.getFreeTcpPort()
+            self.stunnelProc = self._runStunnelDaemon()
             GbsUtil.waitTcpPort(self.stunnelPort)
         except:
             self.stop()
