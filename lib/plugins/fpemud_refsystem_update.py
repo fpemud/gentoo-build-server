@@ -2,7 +2,6 @@
 # -*- coding: utf-8; tab-width: 4; indent-tabs-mode: t -*-
 
 import os
-import shutil
 
 
 class PluginObject:
@@ -49,24 +48,18 @@ class PluginObject:
     def stage_4_start_handler(self):
         self._check_root()
         self.api.prepareRoot()
-        port, key = self.api.startSshService([])
+        rsyncPort = self.api.startSyncDownService()
+        sshPort, sshKey = self.api.startSshService(["emerge *"])
         return {
-            "ssh-port": port,
-            "ssh-key": key,
+            "rsync-port": rsyncPort,
+            "ssh-port": sshPort,
+            "ssh-key": sshKey,
         }
 
     def stage_4_end_handler(self):
         self.api.stopSshService()
-        self.api.unPrepareRoot()
-
-    def stage_5_start_handler(self):
-        self._remove_var_files()
-        self._check_root()
-        port = self.api.startSyncDownService()
-        return {"rsync-port": port}
-
-    def stage_5_end_handler(self):
         self.api.stopSyncDownService()
+        self.api.unPrepareRoot()
 
     def disconnect_handler(self):
         pass
@@ -120,27 +113,27 @@ class PluginObject:
         if flist != []:
             raise self.api.BusinessException("Redundant directories %s are synced up" % (",".join(["/var/lib/" + x for x in flist])))
 
-    def _remove_var_files(self):
-        # (code is ugly)
-        # remove anything in /var except "/var/cache/edb", "/var/db/pkg", "/var/lib/portage", "/var/portage"
+    # def _remove_var_files(self):
+    #     # (code is ugly)
+    #     # remove anything in /var except "/var/cache/edb", "/var/db/pkg", "/var/lib/portage", "/var/portage"
 
-        flist = os.listdir(os.path.join(self.api.getRootDir(), "var"))
-        for f in ["cache", "db", "lib", "portage"]:
-            flist.remove(f)
-        for f in flist:
-            shutil.rmtree(os.path.join(self.api.getRootDir(), "var", f))
+    #     flist = os.listdir(os.path.join(self.api.getRootDir(), "var"))
+    #     for f in ["cache", "db", "lib", "portage"]:
+    #         flist.remove(f)
+    #     for f in flist:
+    #         shutil.rmtree(os.path.join(self.api.getRootDir(), "var", f))
 
-        flist = os.listdir(os.path.join(self.api.getRootDir(), "var", "cache"))
-        flist.remove("edb")
-        for f in flist:
-            shutil.rmtree(os.path.join(self.api.getRootDir(), "var", "cache", f))
+    #     flist = os.listdir(os.path.join(self.api.getRootDir(), "var", "cache"))
+    #     flist.remove("edb")
+    #     for f in flist:
+    #         shutil.rmtree(os.path.join(self.api.getRootDir(), "var", "cache", f))
 
-        flist = os.listdir(os.path.join(self.api.getRootDir(), "var", "db"))
-        flist.remove("pkg")
-        for f in flist:
-            shutil.rmtree(os.path.join(self.api.getRootDir(), "var", "db", f))
+    #     flist = os.listdir(os.path.join(self.api.getRootDir(), "var", "db"))
+    #     flist.remove("pkg")
+    #     for f in flist:
+    #         shutil.rmtree(os.path.join(self.api.getRootDir(), "var", "db", f))
 
-        flist = os.listdir(os.path.join(self.api.getRootDir(), "var", "lib"))
-        flist.remove("portage")
-        for f in flist:
-            shutil.rmtree(os.path.join(self.api.getRootDir(), "var", "lib", f))
+    #     flist = os.listdir(os.path.join(self.api.getRootDir(), "var", "lib"))
+    #     flist.remove("portage")
+    #     for f in flist:
+    #         shutil.rmtree(os.path.join(self.api.getRootDir(), "var", "lib", f))
