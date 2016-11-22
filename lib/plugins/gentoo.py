@@ -35,13 +35,13 @@ class PluginObject:
     def _check_root(self):
         # should contain the following directories:
         # "/bin", "/etc", "/lib", "/opt", "/sbin", "/usr", "/var/db/pkg", "/var/lib/portage"
-        # should NOT contain the following directories:
-        # /home", "/root"
+        # should NOT contain the following files or directories:
+        # "/etc/resolv.conf", "/home", "/root"
 
         for f in ["bin", "etc", "lib", "opt", "sbin", "usr", "var/db/pkg", "/var/lib/portage"]:
             if not os.path.exists(os.path.join(self.api.getRootDir(), f)):
-                raise self.api.BusinessException("Directory /%s is not synced up" % (f))
+                raise self.api.BusinessException("File or directory /%s is not synced up" % (f))
 
-        for f in ["home", "root"]:
+        for f in ["etc/resolv.conf", "home", "root"]:
             if os.path.exists(os.path.join(self.api.getRootDir(), f)):
-                raise self.api.BusinessException("Redundant directory /%s is synced up" % (f))
+                raise self.api.BusinessException("Redundant file or directory /%s is synced up" % (f))

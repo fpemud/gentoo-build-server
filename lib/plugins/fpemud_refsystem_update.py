@@ -68,6 +68,8 @@ class PluginObject:
         # (code is ugly)
         # should contain and ONLY contain the following directories:
         # "/bin", "/boot", "/etc", "/lib", "/lib32", "/lib64", "/opt", "/sbin", "/usr", "/var/cache/edb", "/var/db/pkg", "/var/lib/portage", "/var/portage"
+        # should NOT contain the following files or directories:
+        # "/etc/resolv.conf"
 
         flist = os.listdir(self.api.getRootDir())
         for f in ["bin", "boot", "etc", "lib", "opt", "sbin", "usr", "var"]:
@@ -112,6 +114,10 @@ class PluginObject:
             raise self.api.BusinessException("Directory /var/lib/portage is not synced up")
         if flist != []:
             raise self.api.BusinessException("Redundant directories %s are synced up" % (",".join(["/var/lib/" + x for x in flist])))
+
+        for f in ["etc/resolv.conf"]:
+            if os.path.exists(os.path.join(self.api.getRootDir(), f)):
+                raise self.api.BusinessException("Redundant file or directory /%s is synced up" % (f))
 
     # def _remove_var_files(self):
     #     # (code is ugly)
