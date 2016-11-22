@@ -2,6 +2,7 @@
 # -*- coding: utf-8; tab-width: 4; indent-tabs-mode: t -*-
 
 import os
+import shutil
 
 
 class PluginObject:
@@ -15,7 +16,7 @@ class PluginObject:
 
     def stage_2_start_handler(self):
         self._check_root()
-        self.api.prepareRoot()
+        self._prepare_root()
         port, key = self.api.startSshService([])
         return {
             "ssh-port": port,
@@ -24,7 +25,7 @@ class PluginObject:
 
     def stage_2_end_handler(self):
         self.api.stopSshService()
-        self.api.unPrepareRoot()
+        self._unprepare_root()
 
     def stage_3_start_handler(self):
         resultFile = os.path.join(self.api.getRootDir(), "result.txt")
@@ -47,7 +48,7 @@ class PluginObject:
 
     def stage_4_start_handler(self):
         self._check_root()
-        self.api.prepareRoot()
+        self._prepare_root()
         rsyncPort = self.api.startSyncDownService()
         sshPort, sshKey = self.api.startSshService(["emerge *"])
         return {
@@ -59,7 +60,7 @@ class PluginObject:
     def stage_4_end_handler(self):
         self.api.stopSshService()
         self.api.stopSyncDownService()
-        self.api.unPrepareRoot()
+        self._unprepare_root()
 
     def disconnect_handler(self):
         pass
@@ -118,6 +119,14 @@ class PluginObject:
         for f in ["etc/resolv.conf"]:
             if os.path.exists(os.path.join(self.api.getRootDir(), f)):
                 raise self.api.BusinessException("Redundant file or directory /%s is synced up" % (f))
+
+    def _prepare_root(self):
+        self.api.prepareRoot()
+        shutil.copyfile("/etc/resolv.conf", os.path.join(self.api.getRootDir(), "etc/resolv.conf"))
+
+    def _unprepare_root(self):
+        os.unlink(os.path.join(self.api.getRootDir(), "etc/resolv.conf"))
+        self.api.unPrepareRoot()
 
     # def _remove_var_files(self):
     #     # (code is ugly)

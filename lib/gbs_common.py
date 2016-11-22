@@ -107,8 +107,6 @@ class GbsPluginApi:
                 self.hasHomeDirForRoot = False
             else:
                 self.hasHomeDirForRoot = True
-
-            GbsUtil.shell("/bin/cp %s %s" % ("/etc/resolv.conf", os.path.join(self.sessObj.mntDir, "etc")))
         except:
             self.unPrepareRoot()
             raise
