@@ -91,6 +91,20 @@ class GbsUtil:
             GbsUtil.shell("/bin/chmod " + mode + " \"" + dstFilename + "\"")
 
     @staticmethod
+    def getDirFreeSpace(dirname):
+        """Returns free space in MB"""
+
+        ret = FmUtil.shell("/bin/df -m \"%s\"" % (dirname), "stdout")
+        m = re.search("^.* + [0-9]+ +[0-9]+ +([0-9]+) + [0-9]+% .*$", ret, re.M)
+        return int(m.group(1))
+
+    @staticmethod
+    def getLoopDevByFile(filename):
+        ret = FmUtil.shell("/sbin/losetup -j \"%s\"" % (filename), "stdout")
+        m = re.search("^(.*?):.*$", ret, re.M)
+        return m.group(1)
+
+    @staticmethod
     def mkDir(dirname):
         if not os.path.isdir(dirname):
             GbsUtil.forceDelete(dirname)

@@ -190,10 +190,15 @@ class GbsCommon:
 
         # generate disk image
         fn = _image_file(param, newUuid)
-        GbsUtil.shell("/bin/dd if=/dev/zero of=%s bs=%d count=%s conv=sparse" % (fn, param.imageSizeUnit, param.defaultImageSize), "stdout")
+        GbsUtil.shell("/bin/dd if=/dev/zero of=%s bs=%d count=%s conv=sparse" % (fn, _gb(), param.imageSizeStep), "stdout")
         GbsUtil.shell("/sbin/mkfs.ext4 %s" % (fn), "stdout")
 
         return newUuid
+
+    @staticmethod
+    def systemSetClientInfo(param, uuid, hostname):
+        with open(_info_file(param, uuid), "w") as f:
+            f.write("hostname = %s\n" % (hostname if hostname is not None else ""))
 
     @staticmethod
     def systemGetDiskSize(param, uuid):
@@ -202,18 +207,9 @@ class GbsCommon:
         return sz / param.imageSizeUnit
 
     @staticmethod
-    def systemResizeDisk(param, uuid, newSize):
+    def systemEnlargeDisk(param, uuid):
         fn = _image_file(param, uuid)
-        sz = os.path.getsize(fn)
-        assert sz % param.imageSizeUnit == 0
-        newSize = newSize - sz / param.imageSizeUnit
-        if newSize > 0:
-            GbsUtil.shell("/bin/dd if=/dev/zero of=%s bs=%d count=%s conv=sparse,append" % (fn, param.imageSizeUnit, newSize), "stdout")
-            GbsUtil.shell("/sbin/resize2fs %s" % (fn), "stdout")
-
-    @staticmethod
-    def systemDumpDiskInfo(param, userName, systemName):
-        return GbsUtil.shell("/sbin/dumpe2fs -h %s" % (_image_file(param, userName, systemName))).decode("iso8859-1")
+        GbsUtil.shell("/sbin/resize2fs %s %dG" % (fn, os.path.getsize(fn) / _gb() + param.imageSizeStep))
 
     @staticmethod
     def systemGetSshPublicKey(param, userName, systemName):
@@ -243,6 +239,13 @@ class GbsCommon:
     def systemUnmountDisk(param, uuid):
         dirname = _mnt_dir(param, uuid)
         GbsUtil.shell("/bin/umount -l %s" % (dirname))      # fixme, why "-l"?
+
+
+def _gb():
+    return 1024 * 1024 * 1024
+
+def _info_file(param, uuid):
+    return os.path.join(param.cacheDir, uuid, "client-info")
 
 
 def _image_file(param, uuid):
