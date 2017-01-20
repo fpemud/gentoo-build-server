@@ -287,3 +287,12 @@ class GbsUtil:
             buf = crypto.dump_privatekey(crypto.FILETYPE_PEM, key)
             f.write(buf)
             os.fchmod(f.fileno(), 0o600)
+
+    @staticmethod
+    def getQemuCpuModel(cpuModel):
+        """$(uname -p) -> cpuModel"""
+
+        if cpuModel.startswith("Intel(R) Core(TM) i7-4600U CPU"):
+            return "Haswell"
+        else:
+            assert False
