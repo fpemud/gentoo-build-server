@@ -2,6 +2,7 @@
 # -*- coding: utf-8; tab-width: 4; indent-tabs-mode: t -*-
 
 import os
+import re
 import shutil
 import subprocess
 
@@ -130,6 +131,7 @@ class PluginObject:
         if True:
             with open(self.makeConfFile, "r") as f:
                 self.oriMakeConfContent = f.read()
+            self._removeMakeConfVar("FPEMUD_REFSYSTEM_BUILD_SERVER")
             subprocess.Popen("/usr/bin/chroot \"%s\" /usr/bin/fpemud-refsystem update-parallelism >/dev/null" % (self.api.getRootDir()), shell=True).wait()
 
     def _unprepare_root(self):
@@ -138,6 +140,31 @@ class PluginObject:
             self.oriMakeConfContent = None
         os.unlink(self.resolvConfFile)
         self.api.unPrepareRoot()
+
+    def _removeMakeConfVar(self, varName):
+        """Remove variable in make.conf
+           Multiline variable definition is not supported yet"""
+
+        endEnterCount = 0
+        lineList = []
+        with open(self.makeConfFile, 'r') as f:
+            buf = f.read()
+            endEnterCount = len(buf) - len(buf.rstrip("\n"))
+
+            buf = buf.rstrip("\n")
+            for l in buf.split("\n"):
+                if re.search("^%s=" % (varName), l) is None:
+                    lineList.append(l)
+
+        buf = ""
+        for l in lineList:
+            buf += l + "\n"
+        buf = buf.rstrip("\n")
+        for i in range(0, endEnterCount):
+            buf += "\n"
+
+        with open(self.makeConfFile, 'w') as f:
+            f.write(buf)
 
     # def _remove_var_files(self):
     #     # (code is ugly)
