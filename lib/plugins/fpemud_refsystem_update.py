@@ -130,7 +130,7 @@ class PluginObject:
         if True:
             with open(self.makeConfFile, "r") as f:
                 self.oriMakeConfContent = f.read()
-            subprocess.Popen("/usr/bin/fpemud-refsystem update-parallelism >/dev/null", shell=True).wait()
+            subprocess.Popen("/usr/bin/chroot \"%s\" /usr/bin/fpemud-refsystem update-parallelism >/dev/null" % (self.api.getRootDir()), shell=True).wait()
 
     def _unprepare_root(self):
         with open(self.makeConfFile, "w") as f:
