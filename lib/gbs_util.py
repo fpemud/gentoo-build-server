@@ -91,6 +91,20 @@ class GbsUtil:
             GbsUtil.shell("/bin/chmod " + mode + " \"" + dstFilename + "\"")
 
     @staticmethod
+    def getDirFreeSpace(dirname):
+        """Returns free space in MB"""
+
+        ret = GbsUtil.shell("/bin/df -m \"%s\"" % (dirname), "stdout").decode("ascii")
+        m = re.search("^.* + [0-9]+ +[0-9]+ +([0-9]+) + [0-9]+% .*$", ret, re.M)
+        return int(m.group(1))
+
+    @staticmethod
+    def getLoopDevByFile(filename):
+        ret = GbsUtil.shell("/sbin/losetup -j \"%s\"" % (filename), "stdout").decode("ascii")
+        m = re.search("^(.*?):.*$", ret, re.M)
+        return m.group(1)
+
+    @staticmethod
     def mkDir(dirname):
         if not os.path.isdir(dirname):
             GbsUtil.forceDelete(dirname)
@@ -120,19 +134,6 @@ class GbsUtil:
     def ensureDir(dirname):
         if not os.path.exists(dirname):
             os.makedirs(dirname)
-
-    @staticmethod
-    def isMountPoint(pathname):
-        buf = GbsUtil.shell("/bin/mount", "stdout")
-        found = False
-        for line in buf.split("\n"):
-            m = re.match("^(.*) on (.*) type ", line)
-            if m is None:
-                continue
-            if m.group(2) == pathname:
-                found = True
-                break
-        return found
 
     @staticmethod
     def shell(cmd, flags=""):

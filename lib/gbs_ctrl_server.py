@@ -83,6 +83,7 @@ class GbsCtrlSession:
         # business data
         self.pubkey = self.sslSock.get_peer_certificate().get_pubkey()
         self.uuid = GbsCommon.findOrCreateSystem(self.parent.param, self.pubkey)
+        self.hostname = None
         self.cpuArch = None                                                         # cpu architecture
         self.mntDir = None
         self.plugin = None                                                          # plugin object
@@ -105,8 +106,9 @@ class GbsCtrlSession:
                     outputs = [self.sslSock]
                 else:
                     outputs = []
-                readable, writable, exceptional = select.select(inputs, outputs, inputs)
+                readable, writable, exceptional = select.select(inputs, outputs, inputs, 10.0)
 
+                # read from client
                 if len(readable) > 0 and not self.bQuit:
                     try:
                         buf = self.sslSock.recv(4096)
@@ -129,6 +131,7 @@ class GbsCtrlSession:
                         responseObj = self.onRequest(requestObj)    # create response when processing request
                         self.sendBuf += (json.dumps(responseObj) + "\n").encode("iso8859-1")
 
+                # write to client
                 if len(writable) > 0:
                     i = self.sslSock.send(self.sendBuf)
                     self.sendBuf = self.sendBuf[i:]
@@ -136,8 +139,14 @@ class GbsCtrlSession:
                         logging.info("Control Server: Client \"UUID:%s\" quits." % (self.uuid))
                         return
 
+                # error occured
                 if len(exceptional) > 0:
                     raise GbsCtrlSessionException("Socket error")
+
+                # disk is nearly full (< 200M), enlarge the disk
+                if self.mntDir is not None:
+                    if GbsUtil.getDirFreeSpace(self.mntDir) < 200:
+                        GbsCommon.systemEnlargeDisk(self.parm, self.uuid)
         except (GbsCtrlSessionException, GbsProtocolException, GbsBusinessException) as e:
             logging.error("Control Server: " + str(e) + " from client \"UUID:%s\"." % (self.uuid))
         finally:
@@ -173,16 +182,12 @@ class GbsCtrlSession:
 
             logging.debug("Control Server: Init command received from client \"UUID:%s\"." % (self.uuid))
 
+            if "hostname" in requestObj:
+                self.hostname = requestObj["hostname"]
+
             if "cpu-arch" not in requestObj:
                 raise GbsProtocolException("Missing \"cpu-arch\" in init command")
             self.cpuArch = requestObj["cpu-arch"]
-
-            if "size" not in requestObj:
-                raise GbsProtocolException("Missing \"size\" in init command")
-            if requestObj["size"] > self.parent.param.maxImageSize:
-                raise GbsProtocolException("Value of \"size\" is too large in init command")
-            self.size = requestObj["size"]
-            GbsCommon.systemResizeDisk(self.parent.param, self.uuid, self.size)
 
             self.mntDir = GbsCommon.systemMountDisk(self.parent.param, self.uuid)
 
@@ -193,6 +198,7 @@ class GbsCtrlSession:
             self.plugin = eval("plugins.%s.PluginObject(self.parent.param, GbsPluginApi(self.parent.param, self))" % (pyfname))
             self.plugin.init_handler(requestObj)
 
+            GbsCommon.systemSetClientInfo(self.parent.param, self.uuid, self.hostname)
             self.stage = 0
             logging.debug("Control Server: Init command processed from client \"UUID:%s\", plugin %s." % (self.uuid, requestObj["plugin"]))
             return {"return": {}}

@@ -2,7 +2,9 @@
 # -*- coding: utf-8; tab-width: 4; indent-tabs-mode: t -*-
 
 import os
+import re
 import shutil
+import subprocess
 
 
 class PluginObject:
@@ -10,13 +12,16 @@ class PluginObject:
     def __init__(self, param, api):
         self.param = param
         self.api = api
+        self.resolvConfFile = os.path.join(self.api.getRootDir(), "etc/resolv.conf")
+        self.makeConfFile = os.path.join(self.api.getRootDir(), "etc/portage/make.conf")
+        self.oriMakeConfContent = None
 
     def init_handler(self, requestObj):
         pass
 
     def stage_2_start_handler(self):
         self._check_root()
-        self.api.prepareRoot()
+        self._prepare_root()
         port, key = self.api.startSshService([])
         return {
             "ssh-port": port,
@@ -25,7 +30,7 @@ class PluginObject:
 
     def stage_2_end_handler(self):
         self.api.stopSshService()
-        self.api.unPrepareRoot()
+        self._unprepare_root()
 
     def stage_3_start_handler(self):
         resultFile = os.path.join(self.api.getRootDir(), "result.txt")
@@ -48,25 +53,19 @@ class PluginObject:
 
     def stage_4_start_handler(self):
         self._check_root()
-        self.api.prepareRoot()
-        port, key = self.api.startSshService([])
+        self._prepare_root()
+        rsyncPort = self.api.startSyncDownService()
+        sshPort, sshKey = self.api.startSshService(["emerge *"])
         return {
-            "ssh-port": port,
-            "ssh-key": key,
+            "rsync-port": rsyncPort,
+            "ssh-port": sshPort,
+            "ssh-key": sshKey,
         }
 
     def stage_4_end_handler(self):
         self.api.stopSshService()
-        self.api.unPrepareRoot()
-
-    def stage_5_start_handler(self):
-        self._remove_var_files()
-        self._check_root()
-        port = self.api.startSyncDownService()
-        return {"rsync-port": port}
-
-    def stage_5_end_handler(self):
         self.api.stopSyncDownService()
+        self._unprepare_root()
 
     def disconnect_handler(self):
         pass
@@ -75,6 +74,8 @@ class PluginObject:
         # (code is ugly)
         # should contain and ONLY contain the following directories:
         # "/bin", "/boot", "/etc", "/lib", "/lib32", "/lib64", "/opt", "/sbin", "/usr", "/var/cache/edb", "/var/db/pkg", "/var/lib/portage", "/var/portage"
+        # should NOT contain the following files or directories:
+        # "/etc/resolv.conf"
 
         flist = os.listdir(self.api.getRootDir())
         for f in ["bin", "boot", "etc", "lib", "opt", "sbin", "usr", "var"]:
@@ -120,27 +121,72 @@ class PluginObject:
         if flist != []:
             raise self.api.BusinessException("Redundant directories %s are synced up" % (",".join(["/var/lib/" + x for x in flist])))
 
-    def _remove_var_files(self):
-        # (code is ugly)
-        # remove anything in /var except "/var/cache/edb", "/var/db/pkg", "/var/lib/portage", "/var/portage"
+        for f in ["etc/resolv.conf"]:
+            if os.path.exists(os.path.join(self.api.getRootDir(), f)):
+                raise self.api.BusinessException("Redundant file or directory /%s is synced up" % (f))
 
-        flist = os.listdir(os.path.join(self.api.getRootDir(), "var"))
-        for f in ["cache", "db", "lib", "portage"]:
-            flist.remove(f)
-        for f in flist:
-            shutil.rmtree(os.path.join(self.api.getRootDir(), "var", f))
+    def _prepare_root(self):
+        self.api.prepareRoot()
+        shutil.copyfile("/etc/resolv.conf", self.resolvConfFile)
+        if True:
+            with open(self.makeConfFile, "r") as f:
+                self.oriMakeConfContent = f.read()
+            self._removeMakeConfVar("FPEMUD_REFSYSTEM_BUILD_SERVER")
+            subprocess.Popen("/usr/bin/chroot \"%s\" /usr/bin/fpemud-refsystem update-parallelism >/dev/null" % (self.api.getRootDir()), shell=True).wait()
 
-        flist = os.listdir(os.path.join(self.api.getRootDir(), "var", "cache"))
-        flist.remove("edb")
-        for f in flist:
-            shutil.rmtree(os.path.join(self.api.getRootDir(), "var", "cache", f))
+    def _unprepare_root(self):
+        with open(self.makeConfFile, "w") as f:
+            f.write(self.oriMakeConfContent)
+            self.oriMakeConfContent = None
+        os.unlink(self.resolvConfFile)
+        self.api.unPrepareRoot()
 
-        flist = os.listdir(os.path.join(self.api.getRootDir(), "var", "db"))
-        flist.remove("pkg")
-        for f in flist:
-            shutil.rmtree(os.path.join(self.api.getRootDir(), "var", "db", f))
+    def _removeMakeConfVar(self, varName):
+        """Remove variable in make.conf
+           Multiline variable definition is not supported yet"""
 
-        flist = os.listdir(os.path.join(self.api.getRootDir(), "var", "lib"))
-        flist.remove("portage")
-        for f in flist:
-            shutil.rmtree(os.path.join(self.api.getRootDir(), "var", "lib", f))
+        endEnterCount = 0
+        lineList = []
+        with open(self.makeConfFile, 'r') as f:
+            buf = f.read()
+            endEnterCount = len(buf) - len(buf.rstrip("\n"))
+
+            buf = buf.rstrip("\n")
+            for l in buf.split("\n"):
+                if re.search("^%s=" % (varName), l) is None:
+                    lineList.append(l)
+
+        buf = ""
+        for l in lineList:
+            buf += l + "\n"
+        buf = buf.rstrip("\n")
+        for i in range(0, endEnterCount):
+            buf += "\n"
+
+        with open(self.makeConfFile, 'w') as f:
+            f.write(buf)
+
+    # def _remove_var_files(self):
+    #     # (code is ugly)
+    #     # remove anything in /var except "/var/cache/edb", "/var/db/pkg", "/var/lib/portage", "/var/portage"
+
+    #     flist = os.listdir(os.path.join(self.api.getRootDir(), "var"))
+    #     for f in ["cache", "db", "lib", "portage"]:
+    #         flist.remove(f)
+    #     for f in flist:
+    #         shutil.rmtree(os.path.join(self.api.getRootDir(), "var", f))
+
+    #     flist = os.listdir(os.path.join(self.api.getRootDir(), "var", "cache"))
+    #     flist.remove("edb")
+    #     for f in flist:
+    #         shutil.rmtree(os.path.join(self.api.getRootDir(), "var", "cache", f))
+
+    #     flist = os.listdir(os.path.join(self.api.getRootDir(), "var", "db"))
+    #     flist.remove("pkg")
+    #     for f in flist:
+    #         shutil.rmtree(os.path.join(self.api.getRootDir(), "var", "db", f))
+
+    #     flist = os.listdir(os.path.join(self.api.getRootDir(), "var", "lib"))
+    #     flist.remove("portage")
+    #     for f in flist:
+    #         shutil.rmtree(os.path.join(self.api.getRootDir(), "var", "lib", f))
