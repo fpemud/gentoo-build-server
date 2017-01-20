@@ -290,8 +290,17 @@ class GbsUtil:
             os.fchmod(f.fileno(), 0o600)
 
     @staticmethod
-    def getQemuCpuModel(cpuModel):
+    def getQemuCpuModel(cpuArch, cpuModel):
         """$(uname -p) -> cpuModel"""
+
+        # return cpu model of the lowest level
+        if cpuModel is None:
+            if cpuArch == "amd64":
+                return "core2duo"
+            elif cpuArch == "x86":
+                return "pentium"
+            else:
+                assert False
 
         if cpuModel.startswith("Intel(R) Core(TM) i7-4600U CPU"):
             return "Haswell"
