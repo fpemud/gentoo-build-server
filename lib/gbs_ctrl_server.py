@@ -146,7 +146,7 @@ class GbsCtrlSession:
                 # disk is nearly full (< 200M), enlarge the disk
                 if self.mntDir is not None:
                     if GbsUtil.getDirFreeSpace(self.mntDir) < 200:
-                         GbsCommon.systemEnlargeDisk(self.parm, self.uuid)
+                        GbsCommon.systemEnlargeDisk(self.parm, self.uuid)
         except (GbsCtrlSessionException, GbsProtocolException, GbsBusinessException) as e:
             logging.error("Control Server: " + str(e) + " from client \"UUID:%s\"." % (self.uuid))
         finally:

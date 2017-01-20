@@ -191,7 +191,7 @@ class GbsCommon:
         # generate disk image
         fn = _image_file(param, newUuid)
         GbsUtil.shell("/bin/dd if=/dev/zero of=%s bs=%d count=%s conv=sparse" % (fn, _gb(), param.imageSizeStep), "stdout")
-        GbsUtil.shell("/sbin/mkfs.ext4 %s" % (fn), "stdout")
+        GbsUtil.shell("/sbin/mkfs.ext4 -O ^has_journal %s" % (fn), "stdout")
 
         return newUuid
 
@@ -243,6 +243,7 @@ class GbsCommon:
 
 def _gb():
     return 1024 * 1024 * 1024
+
 
 def _info_file(param, uuid):
     return os.path.join(param.cacheDir, uuid, "client-info")
