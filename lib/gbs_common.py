@@ -190,7 +190,8 @@ class GbsCommon:
 
         # generate disk image
         fn = _image_file(param, newUuid)
-        GbsUtil.shell("/bin/dd if=/dev/zero of=%s bs=%d count=%s conv=sparse" % (fn, _gb(), param.imageSizeStep), "stdout")
+#        GbsUtil.shell("/bin/dd if=/dev/zero of=%s bs=%d count=%s conv=sparse" % (fn, _gb(), param.imageSizeStep), "stdout")
+        GbsUtil.shell("/bin/dd if=/dev/zero of=%s bs=%d count=%s conv=sparse" % (fn, _gb(), 40), "stdout")                              # fixme, on-line enlarg don't work
         GbsUtil.shell("/sbin/mkfs.ext4 -O ^has_journal %s" % (fn), "stdout")
 
         return newUuid
