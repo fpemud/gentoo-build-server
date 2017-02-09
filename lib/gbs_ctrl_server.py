@@ -35,7 +35,7 @@ class GbsCtrlServer:
     def stop(self):
         for sessObj in self.sessionDict.values():
             sessObj.stop()
-        for sessObj in self.sessionDict.values():
+        for sessObj in list(self.sessionDict.values()):     # remove element in loop, we must iterate a copied list
             sessObj.waitForStop()
         self.serverSock.close()
 
