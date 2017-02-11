@@ -18,6 +18,14 @@ class GbsBusinessException(Exception):
     pass
 
 
+class GbsClientInfo:
+
+    def __init__(self):
+        self.hostname = None
+        self.capacity = None            # how much harddisk this client occupy
+        self.ssh_pubkey = None
+
+
 class GbsPluginApi:
 
     ProtocolException = GbsProtocolException
@@ -162,6 +170,12 @@ class GbsPluginApi:
             self.rsyncServ.stop()
             del self.rsyncServ
 
+    def startDistccCrossCompileService(self):
+        pass
+
+    def stopDistccCrossCompileService(self):
+        pass
+
 
 class GbsCommon:
 
@@ -197,25 +211,36 @@ class GbsCommon:
         return newUuid
 
     @staticmethod
+    def getSystemUuidList(param):
+        return os.listdir(param.cacheDir)
+
+    @staticmethod
     def systemSetClientInfo(param, uuid, hostname):
         with open(_info_file(param, uuid), "w") as f:
             f.write("hostname = %s\n" % (hostname if hostname is not None else ""))
 
     @staticmethod
-    def systemGetDiskSize(param, uuid):
-        sz = os.path.getsize(_image_file(param, uuid))
-        assert sz % param.imageSizeUnit == 0
-        return sz / param.imageSizeUnit
+    def systemGetClientInfo(param, uuid):
+        ret = GbsClientInfo()
+
+        if os.path.exists(_info_file(param, uuid)):                     # fixme, should be removed in future
+            with open(_info_file(param, uuid), "r") as f:
+                buf = f.read()
+                m = re.match("^hostname = (.*)$", buf, re.M)
+                if m is not None:
+                    ret.hostname = m.group(1)
+
+        ret.capacity = os.path.getsize(_image_file(param, uuid))
+
+        with open(_ssh_pubkey_file(param, uuid), "r") as f:
+            ret.ssh_pubkey = f.read()
+
+        return ret
 
     @staticmethod
     def systemEnlargeDisk(param, uuid):
         fn = _image_file(param, uuid)
         GbsUtil.shell("/sbin/resize2fs %s %dG" % (fn, os.path.getsize(fn) / _gb() + param.imageSizeStep))
-
-    @staticmethod
-    def systemGetSshPublicKey(param, userName, systemName):
-        with open(_ssh_pubkey_file(param, userName, systemName), "r") as f:
-            return f.read()
 
     @staticmethod
     def findSystemBySshPublicKey(param, key):
