@@ -30,7 +30,7 @@ try:
         obj = GbsCmd(param)
         obj.cmdInitialize()
         sys.exit(0)
-    if parseResult.subcmd == "show-clients":
+    if parseResult.subcmd == "show_clients":
         obj = GbsCmd(param)
         obj.cmdShowClients()
         sys.exit(0)
