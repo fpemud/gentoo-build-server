@@ -9,6 +9,33 @@ import subprocess
 from OpenSSL import SSL
 
 
+def genSelfSignedCertAndKey(cn, keysize):
+    k = crypto.PKey()
+    k.generate_key(crypto.TYPE_RSA, keysize)
+
+    cert = crypto.X509()
+    cert.get_subject().CN = cn
+    cert.set_serial_number(random.randint(0, 65535))
+    cert.gmtime_adj_notBefore(100 * 365 * 24 * 60 * 60 * -1)
+    cert.gmtime_adj_notAfter(100 * 365 * 24 * 60 * 60)
+    cert.set_issuer(cert.get_subject())
+    cert.set_pubkey(k)
+    cert.sign(k, 'sha1')
+
+    return (cert, k)
+
+def dumpCertAndKey(cert, key, certFile, keyFile):
+    with open(certFile, "wt") as f:
+        buf = crypto.dump_certificate(crypto.FILETYPE_PEM, cert)
+        f.write(buf)
+        os.fchmod(f.fileno(), 0o644)
+
+    with open(keyFile, "wt") as f:
+        buf = crypto.dump_privatekey(crypto.FILETYPE_PEM, key)
+        f.write(buf)
+        os.fchmod(f.fileno(), 0o600)
+
+
 def sendRequestObj(sslSock, requestObj):
     s = json.dumps(requestObj) + "\n"
     sslSock.send(s.encode("iso8859-1"))
@@ -206,16 +233,23 @@ def syncDown(ip, port, extraPatternList, certFile, keyFile):
 
 
 if __name__ == "__main__":
+    dstIp = ""
+    dstPort = 2108
+
     if os.getuid() != 0:
         print("priviledge error")
         sys.exit(1)
 
-    dstIp = ""
-    dstPort = 2108
     if len(sys.argv) < 2:
         print("argument error")
         sys.exit(1)
     dstIp = sys.argv[1]
+
+    print(">> Init.")
+
+    if not os.path.exists("./cert.pem") or not os.path.exists("./privkey.pem"):
+        cert, key = genSelfSignedCertAndKey("syncupd-example", 1024)
+        dumpCertAndKey(cert, key, "./cert.pem", "./privkey.pem")
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((dstIp, dstPort))
@@ -226,14 +260,11 @@ if __name__ == "__main__":
     sslSock = SSL.Connection(ctx, sock)
     sslSock.set_connect_state()
 
-    print(">> Init.")
-
     req = dict()
     req["command"] = "init"
+    req["hostname"] = socket.gethostname()
     req["cpu-arch"] = getArch()
-    req["size"] = 10
     req["plugin"] = "gentoo"
-    req["mode"] = "emerge+sync"
     sendRequestObj(sslSock, req)
     resp = recvReponseObj(sslSock)
 
