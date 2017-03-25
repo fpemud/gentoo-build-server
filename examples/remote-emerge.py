@@ -122,7 +122,7 @@ def shell(cmd, flags=""):
     assert False
 
 
-def createStunnelProcess(port):
+def createStunnelProcess(hostname, port):
     newPort = getFreeTcpPort()
     try:
         buf = ""
@@ -148,7 +148,7 @@ def createStunnelProcess(port):
 
 
 def syncUp(ip, port):
-    stunnelCfgFile, newPort, proc = createStunnelProcess(port)
+    stunnelCfgFile, newPort, proc = createStunnelProcess(ip, port)
     try:
         cmd = ""
         cmd += "/usr/bin/rsync -a -z -hhh --delete --delete-excluded --partial --info=progress2 "
@@ -208,7 +208,7 @@ def sshExec(ip, port, key, argList):
 
 
 def syncDown(ip, port):
-    stunnelCfgFile, newPort, proc = self._createStunnelProcess(port)
+    stunnelCfgFile, newPort, proc = self._createStunnelProcess(ip, port)
     try:
         cmd = ""
         cmd += "/usr/bin/rsync -a -z -hhh --delete --info=progress2 "
