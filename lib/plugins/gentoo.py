@@ -156,7 +156,7 @@ class PluginObject:
                     f.write("\n")
                 f.write("%s=\"%s\"\n" % (varName, varValue))
 
-    def _getPhysicalMemorySize():
+    def _getPhysicalMemorySize(self):
         with open("/proc/meminfo", "r") as f:
             # We return memory size in GB.
             # Since the memory size shown in /proc/meminfo is always a
