@@ -209,7 +209,7 @@ def sshExec(ip, port, key, argList):
 
 
 def syncDown(ip, port):
-    stunnelCfgFile, newPort, proc = self._createStunnelProcess(ip, port)
+    stunnelCfgFile, newPort, proc = createStunnelProcess(ip, port)
     try:
         cmd = ""
         cmd += "/usr/bin/rsync -a -z -hhh --delete --info=progress2 "
