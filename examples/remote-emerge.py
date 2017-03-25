@@ -318,3 +318,10 @@ if __name__ == "__main__":
     assert resp["return"]["stage"] == 3
 
     syncDown(dstHostname, resp["return"]["rsync-port"])
+
+    req = dict()
+    req["command"] = "quit"
+    sendRequestObj(sslSock, req)
+    resp = recvReponseObj(sslSock)
+
+    sslSock.close()
