@@ -22,18 +22,24 @@ class PluginObject:
     def stage_2_start_handler(self):
         self._check_root()
         self._prepare_root()
-        rsyncPort = self.api.startSyncDownService()
         sshPort, sshKey = self.api.startSshService(["emerge *"])
         return {
-            "rsync-port": rsyncPort,
             "ssh-port": sshPort,
             "ssh-key": sshKey,
         }
 
     def stage_2_end_handler(self):
         self.api.stopSshService()
-        self.api.stopSyncDownService()
         self._unprepare_root()
+
+    def stage_3_start_handler(self):
+        port = self.api.startSyncDownService()
+        return {
+            "rsync-port": port,
+        }
+
+    def stage_3_end_handler(self):
+        self.api.stopSyncDownService()
 
     def disconnect_handler(self):
         pass
