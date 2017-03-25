@@ -5,7 +5,9 @@ import os
 import sys
 import json
 import socket
+import random
 import subprocess
+from OpenSSL import crypto
 from OpenSSL import SSL
 
 
@@ -25,12 +27,12 @@ def genSelfSignedCertAndKey(cn, keysize):
     return (cert, k)
 
 def dumpCertAndKey(cert, key, certFile, keyFile):
-    with open(certFile, "wt") as f:
+    with open(certFile, "wb") as f:
         buf = crypto.dump_certificate(crypto.FILETYPE_PEM, cert)
         f.write(buf)
         os.fchmod(f.fileno(), 0o644)
 
-    with open(keyFile, "wt") as f:
+    with open(keyFile, "wb") as f:
         buf = crypto.dump_privatekey(crypto.FILETYPE_PEM, key)
         f.write(buf)
         os.fchmod(f.fileno(), 0o600)
