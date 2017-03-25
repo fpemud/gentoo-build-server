@@ -141,9 +141,9 @@ def createStunnelProcess(port):
         proc = subprocess.Popen("/usr/sbin/stunnel ./stunnel.conf 2>/dev/null", shell=True, universal_newlines=True)
         waitTcpPort(newPort)
 
-        return (stunnelCfgFile, newPort, proc)
+        return ("./stunnel.conf", newPort, proc)
     except:
-        os.unlink(stunnelCfgFile)
+        os.unlink("./stunnel.conf")
         raise
 
 
