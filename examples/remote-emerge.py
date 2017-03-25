@@ -60,6 +60,31 @@ def getArch():
         return ret
 
 
+def getFreeTcpPort(start_port=10000, end_port=65536):
+    for port in range(start_port, end_port):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            s.bind((('', port)))
+            return port
+        except socket.error:
+            continue
+        finally:
+            s.close()
+    raise Exception("No valid tcp port in [%d,%d]." % (start_port, end_port))
+
+
+def waitTcpPort(port):
+    while True:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            s.connect(('127.0.0.1', port))
+            s.close()
+            break
+        except socket.error:
+            s.close()
+            time.sleep(1.0)
+
+
 def shell(cmd, flags=""):
     """Execute shell command"""
 
@@ -95,36 +120,49 @@ def shell(cmd, flags=""):
     assert False
 
 
-def syncUp(ip, port, certFile, keyFile):
-    buf = ""
-    buf += "cert = %s\n" % (certFile)
-    buf += "key = %s\n" % (keyFile)
-    buf += "\n"
-    buf += "client = yes\n"
-    buf += "foreground = yes\n"
-    buf += "\n"
-    buf += "[rsync]\n"
-    buf += "accept = 127.0.0.1:874\n"
-    buf += "connect = %s:%d\n" % (ip, port)
-    with open("./stunnel.conf", "w") as f:
-        f.write(buf)
+def createStunnelProcess(port):
+    newPort = getFreeTcpPort()
+    try:
+        buf = ""
+        buf += "cert = ./cert.pem\n"
+        buf += "key = ./privkey.pem\n"
+        buf += "\n"
+        buf += "client = yes\n"
+        buf += "foreground = yes\n"
+        buf += "\n"
+        buf += "[rsync]\n"
+        buf += "accept = %d\n" % (newPort)
+        buf += "connect = %s:%d\n" % (hostname, port)
+        with open("./stunnel.conf", "w") as f:
+            f.write(buf)
 
-    cmd = ""
-    cmd += "/usr/sbin/stunnel ./stunnel.conf >/dev/null 2>&1"
-    proc = subprocess.Popen(cmd, shell=True, universal_newlines=True)
+        proc = subprocess.Popen("/usr/sbin/stunnel ./stunnel.conf 2>/dev/null", shell=True, universal_newlines=True)
+        waitTcpPort(newPort)
 
+        return (stunnelCfgFile, newPort, proc)
+    except:
+        os.unlink(stunnelCfgFile)
+        raise
+
+
+def syncUp(ip, port):
+    stunnelCfgFile, newPort, proc = createStunnelProcess(port)
     try:
         cmd = ""
-        cmd += "/usr/bin/rsync -a --delete --delete-excluded "
+        cmd += "/usr/bin/rsync -a -z -hhh --delete --delete-excluded --partial --info=progress2 "
+        cmd += "-f '+ /bin' "             # /bin may be a symlink or directory
         cmd += "-f '+ /bin/***' "
+        cmd += "-f '+ /boot/***' "
+        cmd += "-f '- /etc/resolv.conf' "
         cmd += "-f '+ /etc/***' "
         cmd += "-f '+ /lib' "             # /lib may be a symlink or directory
         cmd += "-f '+ /lib/***' "
-        cmd += "-f '+ /lib32' "           # /lib may be a symlink or directory
+        cmd += "-f '+ /lib32' "           # /lib32 may be a symlink or directory
         cmd += "-f '+ /lib32/***' "
-        cmd += "-f '+ /lib64' "           # /lib may be a symlink or directory
+        cmd += "-f '+ /lib64' "           # /lib64 may be a symlink or directory
         cmd += "-f '+ /lib64/***' "
         cmd += "-f '+ /opt/***' "
+        cmd += "-f '+ /sbin' "            # /sbin may be a symlink or directory
         cmd += "-f '+ /sbin/***' "
         cmd += "-f '+ /usr/***' "
         cmd += "-f '+ /var' "
@@ -136,20 +174,18 @@ def syncUp(ip, port, certFile, keyFile):
         cmd += "-f '+ /var/lib' "
         cmd += "-f '+ /var/lib/portage/***' "
         cmd += "-f '- /**' "
-        cmd += "/ rsync://127.0.0.1/main"
-        ret = subprocess.Popen(cmd, shell=True, universal_newlines=True).wait()
-        if ret != 0:
-            raise Exception("syncup failed")
+        cmd += "/ rsync://127.0.0.1:%d/main" % (newPort)
+        shell(cmd)
     finally:
         proc.terminate()
         proc.wait()
-        os.unlink("./stunnel.conf")
+        os.unlink(stunnelCfgFile)
 
 
 def sshExec(ip, port, key, argList):
     with open("./ssh_identity", "w") as f:
         f.write(key)
-    os.chmod("./ssh_identity", 0o700)
+    os.chmod("./ssh_identity", 0o600)
 
     buf = ""
     buf += "KbdInteractiveAuthentication no\n"
@@ -166,74 +202,47 @@ def sshExec(ip, port, key, argList):
 
     cmd = ""
     cmd += "/usr/bin/ssh -t -p %d -F ./ssh_config %s emerge %s" % (port, ip, " ".join(argList))
-    print(cmd)
-    subprocess.Popen(cmd, shell=True, universal_newlines=True).wait()
+    shell(cmd)
 
 
-def syncDown(ip, port, extraPatternList, certFile, keyFile):
-    buf = ""
-    buf += "cert = %s\n" % (certFile)
-    buf += "key = %s\n" % (keyFile)
-    buf += "\n"
-    buf += "client = yes\n"
-    buf += "foreground = yes\n"
-    buf += "\n"
-    buf += "[rsync]\n"
-    buf += "accept = 127.0.0.1:874\n"
-    buf += "connect = %s:%d\n" % (ip, port)
-    with open("./stunnel.conf", "w") as f:
-        f.write(buf)
-
-    cmd = ""
-    cmd += "/usr/sbin/stunnel ./stunnel.conf >/dev/null 2>&1"
-    proc = subprocess.Popen(cmd, shell=True, universal_newlines=True)
-
-    cmd = ""
-    cmd += "/usr/bin/rsync -a --delete "
-    cmd += "-f '+ /bin/***' "
-    cmd += "-f '+ /etc/***' "
-    cmd += "-f '+ /lib' "             # /lib may be a symlink or directory
-    cmd += "-f '+ /lib/***' "
-    cmd += "-f '+ /lib32' "           # /lib may be a symlink or directory
-    cmd += "-f '+ /lib32/***' "
-    cmd += "-f '+ /lib64' "           # /lib may be a symlink or directory
-    cmd += "-f '+ /lib64/***' "
-    cmd += "-f '+ /opt/***' "
-    cmd += "-f '+ /sbin/***' "
-    cmd += "-f '+ /usr/***' "
-    cmd += "-f '+ /var' "
-    cmd += "-f '+ /var/portage/***' "
-    cmd += "-f '+ /var/cache' "
-    cmd += "-f '+ /var/cache/edb/***' "
-    cmd += "-f '+ /var/db' "
-    cmd += "-f '+ /var/db/pkg/***' "
-    cmd += "-f '+ /var/lib' "
-    cmd += "-f '+ /var/lib/portage/***' "
-    cmd += "-f '- /**' "
-    cmd += "rsync://127.0.0.1/main /"
-    ret = subprocess.Popen(cmd, shell=True, universal_newlines=True).wait()
-    if ret != 0:
-        raise Exception("syncup failed")
-
-    cmd = ""
-    cmd += "/usr/bin/rsync -a"
-    for p in extraPatternList:
-        cmd += "-f '+ %s' " % (p)
-    cmd += "-f '- /**' "
-    cmd += "rsync://127.0.0.1/main /"
-    print(cmd)
-    ret = subprocess.Popen(cmd, shell=True, universal_newlines=True).wait()
-    if ret != 0:
-        raise Exception("syncup failed")
-
-    proc.terminate()
-    proc.wait()
-
-    os.unlink("./stunnel.conf")
+def syncDown(ip, port):
+    stunnelCfgFile, newPort, proc = self._createStunnelProcess(port)
+    try:
+        cmd = ""
+        cmd += "/usr/bin/rsync -a -z -hhh --delete --info=progress2 "
+        cmd += "-f '+ /bin' "             # /bin may be a symlink or directory
+        cmd += "-f '+ /bin/***' "
+        cmd += "-f '- /etc/resolv.conf' "
+        cmd += "-f '+ /etc/***' "
+        cmd += "-f '+ /lib' "             # /lib may be a symlink or directory
+        cmd += "-f '+ /lib/***' "
+        cmd += "-f '+ /lib32' "           # /lib may be a symlink or directory
+        cmd += "-f '+ /lib32/***' "
+        cmd += "-f '+ /lib64' "           # /lib may be a symlink or directory
+        cmd += "-f '+ /lib64/***' "
+        cmd += "-f '+ /opt/***' "
+        cmd += "-f '+ /sbin' "            # /sbin may be a symlink or directory
+        cmd += "-f '+ /sbin/***' "
+        cmd += "-f '+ /usr/***' "
+        cmd += "-f '+ /var' "
+        cmd += "-f '+ /var/portage/***' "
+        cmd += "-f '+ /var/cache' "
+        cmd += "-f '+ /var/cache/edb/***' "
+        cmd += "-f '+ /var/db' "
+        cmd += "-f '+ /var/db/pkg/***' "
+        cmd += "-f '+ /var/lib' "
+        cmd += "-f '+ /var/lib/portage/***' "
+        cmd += "-f '- /**' "
+        cmd += "rsync://127.0.0.1:%d/main /" % (newPort)
+        FmUtil.shell(cmd)
+    finally:
+        proc.terminate()
+        proc.wait()
+        os.unlink(stunnelCfgFile)
 
 
 if __name__ == "__main__":
-    dstIp = ""
+    dstHostname = ""
     dstPort = 2108
 
     if os.getuid() != 0:
@@ -243,7 +252,7 @@ if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("argument error")
         sys.exit(1)
-    dstIp = sys.argv[1]
+    dstHostname = sys.argv[1]
 
     print(">> Init.")
 
@@ -252,7 +261,7 @@ if __name__ == "__main__":
         dumpCertAndKey(cert, key, "./cert.pem", "./privkey.pem")
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect((dstIp, dstPort))
+    sock.connect((dstHostname, dstPort))
 
     ctx = SSL.Context(SSL.SSLv3_METHOD)
     ctx.use_certificate_file("./cert.pem")
@@ -279,7 +288,7 @@ if __name__ == "__main__":
         sys.exit(1)
     assert resp["return"]["stage"] == 1
 
-    syncUp(dstIp, resp["return"]["rsync-port"], "./cert.pem", "./privkey.pem")
+    syncUp(dstHostname, resp["return"]["rsync-port"])
 
     print(">> Emerging.")
 
@@ -292,7 +301,7 @@ if __name__ == "__main__":
         sys.exit(1)
     assert resp["return"]["stage"] == 2
 
-    sshExec(dstIp, resp["return"]["ssh-port"], resp["return"]["ssh-key"], sys.argv[2:])
+    sshExec(dstHostname, resp["return"]["ssh-port"], resp["return"]["ssh-key"], sys.argv[2:])
 
     print(">> Sync down.")
 
@@ -305,4 +314,4 @@ if __name__ == "__main__":
         sys.exit(1)
     assert resp["return"]["stage"] == 3
 
-    syncDown(dstIp, resp["return"]["rsync-port"], resp["return"]["extra-patterns"], "./cert.pem", "./privkey.pem")
+    syncDown(dstHostname, resp["return"]["rsync-port"])
