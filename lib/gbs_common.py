@@ -212,6 +212,8 @@ class GbsCommon:
 
     @staticmethod
     def getSystemUuidList(param):
+        if not os.path.exists(param.cacheDir):
+            return []
         return os.listdir(param.cacheDir)
 
     @staticmethod
