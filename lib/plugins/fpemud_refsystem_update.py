@@ -79,7 +79,7 @@ class PluginObject:
     def _check_root(self):
         # (code is ugly)
         # should contain and ONLY contain the following directories:
-        # "/bin", "/boot", "/etc", "/lib", "/lib32", "/lib64", "/opt", "/sbin", "/usr", "/var/cache/edb", "/var/db/pkg", "/var/lib/portage", "/var/portage"
+        # "/bin", "/boot", "/etc", "/lib", "/lib32", "/lib64", "/opt", "/sbin", "/usr", "/var/cache/edb", "/var/db/pkg", "/var/lib/portage", "/var/fpemud-refsystem"
         # should NOT contain the following files or directories:
         # "/etc/resolv.conf"
 
@@ -98,7 +98,7 @@ class PluginObject:
             raise self.api.BusinessException("Redundant directories %s are synced up" % (",".join(["/" + x for x in flist])))
 
         flist = os.listdir(os.path.join(self.api.getRootDir(), "var"))
-        for f in ["db", "lib", "portage"]:
+        for f in ["db", "lib", "fpemud-refsystem"]:
             try:
                 flist.remove(f)
             except ValueError:
@@ -138,7 +138,7 @@ class PluginObject:
             with open(self.makeConfFile, "r") as f:
                 self.oriMakeConfContent = f.read()
             self._removeMakeConfVar("FPEMUD_REFSYSTEM_BUILD_SERVER")
-            subprocess.Popen("/usr/bin/chroot \"%s\" /usr/bin/fpemud-refsystem update-parallelism >/dev/null" % (self.api.getRootDir()), shell=True).wait()
+            subprocess.Popen("/usr/bin/chroot \"%s\" /usr/bin/sysman update-parallelism >/dev/null" % (self.api.getRootDir()), shell=True).wait()
 
     def _unprepare_root(self):
         with open(self.makeConfFile, "w") as f:
