@@ -19,6 +19,15 @@ class PluginObject:
     def init_handler(self, requestObj):
         pass
 
+    # stage2: synchronize kernel, gentoo repository and gentoo overlays
+
+    # stage3: download files
+
+    # stage4: fetch files
+
+    # stage5: download files
+
+    # stage6: build kernel
     def stage_2_start_handler(self):
         self._check_root()
         self._prepare_root()
@@ -32,6 +41,7 @@ class PluginObject:
         self.api.stopSshService()
         self._unprepare_root()
 
+    # stage7: download files
     def stage_3_start_handler(self):
         resultFile = os.path.join(self.api.getRootDir(), "result.txt")
         with open(resultFile, "r") as f:
@@ -51,6 +61,7 @@ class PluginObject:
     def stage_3_end_handler(self):
         self.api.stopSyncDownService()
 
+    # stage8: update system
     def stage_4_start_handler(self):
         self._check_root()
         self._prepare_root()
@@ -64,6 +75,7 @@ class PluginObject:
         self.api.stopSshService()
         self._unprepare_root()
 
+    # stage9: download files
     def stage_5_start_handler(self):
         port = self.api.startSyncDownService()
         return {

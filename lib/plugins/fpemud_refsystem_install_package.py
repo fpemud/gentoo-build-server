@@ -19,6 +19,7 @@ class PluginObject:
     def init_handler(self, requestObj):
         pass
 
+    # stage2: emerge package
     def stage_2_start_handler(self):
         self._check_root()
         self._prepare_root()
@@ -32,6 +33,7 @@ class PluginObject:
         self.api.stopSshService()
         self._unprepare_root()
 
+    # stage3: download files
     def stage_3_start_handler(self):
         port = self.api.startSyncDownService()
         return {
