@@ -283,40 +283,28 @@ if __name__ == "__main__":
     print(">> Sync up.")
 
     req = dict()
-    req["command"] = "stage"
+    req["command"] = "stage-syncup"
     sendRequestObj(sslSock, req)
     resp = recvReponseObj(sslSock)
     if "error" in resp:
         print(str(resp))
         sys.exit(1)
-    assert resp["return"]["stage"] == 1
+    assert resp["return"]["stage"] == "syncup"
 
     syncUp(dstHostname, resp["return"]["rsync-port"])
 
-    print(">> Emerging.")
+    print(">> Emerging then sync down.")
 
     req = dict()
-    req["command"] = "stage"
+    req["command"] = "stage-working"
     sendRequestObj(sslSock, req)
     resp = recvReponseObj(sslSock)
     if "error" in resp:
         print(str(resp))
         sys.exit(1)
-    assert resp["return"]["stage"] == 2
+    assert resp["return"]["stage"] == "working"
 
     sshExec(dstHostname, resp["return"]["ssh-port"], resp["return"]["ssh-key"], sys.argv[2:])
-
-    print(">> Sync down.")
-
-    req = dict()
-    req["command"] = "stage"
-    sendRequestObj(sslSock, req)
-    resp = recvReponseObj(sslSock)
-    if "error" in resp:
-        print(str(resp))
-        sys.exit(1)
-    assert resp["return"]["stage"] == 3
-
     syncDown(dstHostname, resp["return"]["rsync-port"])
 
     req = dict()
