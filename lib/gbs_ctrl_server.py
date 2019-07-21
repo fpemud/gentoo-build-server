@@ -117,11 +117,11 @@ class GbsCtrlSession:
                     try:
                         buf = self.sslSock.recv(4096)
                         if len(buf) == 0:
-                            logging.info("Control Server: Client \"%s\" disconnects." % (self._formatClient()))
+                            logging.info("Control Server: Client \"%s\" disconnected." % (self._formatClient()))
                             return
                     except SSL.SysCallError as e:
                         if str(e) in ["(-1, 'Unexpected EOF')", "(104, 'ECONNRESET')"]:
-                            logging.info("Control Server: Client \"%s\" disconnects." % (self._formatClient()))
+                            logging.info("Control Server: Client \"%s\" disconnected." % (self._formatClient()))
                             return
                         raise
 

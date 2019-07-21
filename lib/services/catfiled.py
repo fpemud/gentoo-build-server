@@ -118,11 +118,12 @@ class _CatFileThread(threading.Thread):
         bHasError = False
         try:
             while True:
+                if self.serverSock is None:
+                    return
+
                 # accept a socket
-                readable, writable, exceptional = select.select([self.serverSock], [], [], 10.0)
+                readable, dummy, dummy = select.select([self.serverSock], [], [], 10.0)
                 if readable == []:
-                    if self.serverSock is None:
-                        return
                     continue
                 sock, addr = self.serverSock.accept()
                 sock.setblocking(0)
@@ -148,7 +149,9 @@ class _CatFileThread(threading.Thread):
                         else:
                             outputs.append(sock)
                         readable, writable, exceptional = select.select(inputs, outputs, [sock], 10.0)
-                        if readable == [] and writable == [] and exceptional == []:
+                        if exceptional != []:
+                            raise Exception("socket exception")
+                        if readable == [] and writable == []:
                             if self.serverSock is None:
                                 return
                             continue

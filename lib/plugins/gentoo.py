@@ -47,9 +47,10 @@ class PluginObject:
             self._updateParallelism()
 
     def _unprepare_root(self):
-        with open(self.makeConfFile, "w") as f:
-            f.write(self.oriMakeConfContent)
-            self.oriMakeConfContent = None
+        if self.oriMakeConfContent is not None:
+            with open(self.makeConfFile, "w") as f:
+                f.write(self.oriMakeConfContent)
+                self.oriMakeConfContent = None
         os.unlink(self.resolvConfFile)
         self.api.unPrepareRoot()
 

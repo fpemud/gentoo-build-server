@@ -8,7 +8,7 @@ from gbs_util import GbsUtil
 
 class SshService:
 
-    def __init__(self, param, uuid, srcIp, srcCert, rootDir, cmdPatternAllowed):
+    def __init__(self, param, uuid, srcIp, srcCert, rootDir):
         self.param = param
         self.rootDir = rootDir
 

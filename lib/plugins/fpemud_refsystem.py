@@ -89,9 +89,10 @@ class PluginObject:
             subprocess.Popen("/usr/bin/chroot \"%s\" /usr/bin/sysman update-parallelism >/dev/null" % (self.api.getRootDir()), shell=True).wait()
 
     def _unprepare_root(self):
-        with open(self.makeConfFile, "w") as f:
-            f.write(self.oriMakeConfContent)
-            self.oriMakeConfContent = None
+        if self.oriMakeConfContent is not None:
+            with open(self.makeConfFile, "w") as f:
+                f.write(self.oriMakeConfContent)
+                self.oriMakeConfContent = None
         os.unlink(self.resolvConfFile)
         self.api.unPrepareRoot()
 
