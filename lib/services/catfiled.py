@@ -50,7 +50,7 @@ class CatFileService:
         if self.stunnelProc is not None:
             self.stunnelProc.terminate()
             self.stunnelProc.wait()
-        if self.catFileProc is not None:
+        if self.catFileThread is not None:
             self.catFileThread.stop()
             self.catFileThread.join()
         GbsUtil.forceDelete(self.stunnelRndFile)
