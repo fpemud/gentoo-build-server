@@ -93,7 +93,8 @@ class PluginObject:
             with open(self.makeConfFile, "w") as f:
                 f.write(self.oriMakeConfContent)
                 self.oriMakeConfContent = None
-        os.unlink(self.resolvConfFile)
+        if os.path.exists(self.resolvConfFile):
+            os.unlink(self.resolvConfFile)
         self.api.unPrepareRoot()
 
     def _removeMakeConfVar(self, varName):
