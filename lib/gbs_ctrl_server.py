@@ -117,11 +117,11 @@ class GbsCtrlSession:
                     try:
                         buf = self.sslSock.recv(4096)
                         if len(buf) == 0:
-                            logging.info("Control Server: Client \"UUID:%s\" disconnects." % (self.uuid))
+                            logging.info("Control Server: Client \"%s\" disconnects." % (self._formatClient()))
                             return
                     except SSL.SysCallError as e:
-                        if str(e) == "(-1, 'Unexpected EOF')":
-                            logging.info("Control Server: Client \"UUID:%s\" disconnects." % (self.uuid))
+                        if str(e) in ["(-1, 'Unexpected EOF')", "(104, 'ECONNRESET')"]:
+                            logging.info("Control Server: Client \"%s\" disconnects." % (self._formatClient()))
                             return
                         raise
 
@@ -140,7 +140,7 @@ class GbsCtrlSession:
                     i = self.sslSock.send(self.sendBuf)
                     self.sendBuf = self.sendBuf[i:]
                     if self.bQuit and len(self.sendBuf) == 0:
-                        logging.info("Control Server: Client \"UUID:%s\" quits." % (self.uuid))
+                        logging.info("Control Server: Client \"%s\" quits." % (self._formatClient()))
                         return
 
                 # error occured
@@ -152,7 +152,7 @@ class GbsCtrlSession:
                     if GbsUtil.getDirFreeSpace(self.mntDir) < 200:
                         GbsCommon.systemEnlargeDisk(self.parm, self.uuid)
         except (GbsCtrlSessionException, GbsProtocolException, GbsBusinessException) as e:
-            logging.error("Control Server: " + str(e) + " from client \"UUID:%s\"." % (self.uuid))
+            logging.error("Control Server: " + str(e) + " from client \"%s\"." % (self._formatClient()))
         finally:
             self.__invokeStageEndHandler()      # should raise no exception
             self.__invokeFiniHandler()          # should raise no exception
@@ -175,13 +175,14 @@ class GbsCtrlSession:
             raise GbsProtocolException("Unknown command")
 
     def cmdInit(self, requestObj):
-        logging.debug("Control Server: Command \"init\" received from client \"UUID:%s\"." % (self.uuid))
+        logging.debug("Control Server: Command \"init\" received from client \"%s\"." % (self._formatClient()))
         try:
             self.__invokeInitHandler(requestObj)
+            logging.debug("Control Server: Command \"init\" processed from client \"%s\"." % (self._formatClient()))
             return {"return": {}}
         except Exception as e:
             self.__invokeFiniHandler()
-            logging.exception("Control Server: Command \"init\" error %s from client \"UUID:%s\"." % (str(e), self.uuid))
+            logging.exception("Control Server: Command \"init\" error %s from client \"%s\"." % (str(e), self._formatClient()))
             return {"error": str(e)}
 
     def cmdStage(self, stage, requestObj):
@@ -198,22 +199,22 @@ class GbsCtrlSession:
                 self.__invokeStageEndHandler()
 
             # stage start processing
-            logging.debug("Control Server: Command \"stage-%s\" received from client \"UUID:%s\"." % (stage, self.uuid))
+            logging.debug("Control Server: Command \"stage-%s\" received from client \"%s\"." % (stage, self._formatClient()))
             self.stage = stage
             try:
                 ret = self.__invokeStageStartHandler(requestObj)
-                logging.debug("Control Server: Command \"stage-%s\" processed from client \"UUID:%s\"." % (stage, self.uuid))
+                logging.debug("Control Server: Command \"stage-%s\" processed from client \"%s\"." % (stage, self._formatClient()))
                 return self._formatStageReturn(ret)
             except:
                 self.__invokeStageEndHandler()
                 self.stage = None
                 raise
         except Exception as e:
-            logging.exception("Control Server: Command \"stage-%s\" error %s from client \"UUID:%s\"." % (stage, str(e), self.uuid))
+            logging.exception("Control Server: Command \"stage-%s\" error %s from client \"%s\"." % (stage, str(e), self._formatClient()))
             return {"error": str(e)}
 
     def cmdQuit(self, requestObj):
-        logging.debug("Control Server: Command \"quit\" from client \"UUID:%s\"." % (self.uuid))
+        logging.debug("Control Server: Command \"quit\" from client \"%s\"." % (self._formatClient()))
         self.bQuit = True
         return {"return": {}}
 
@@ -307,6 +308,12 @@ class GbsCtrlSession:
     def _formatStageReturn(self, ret):
         ret["stage"] = self.stage
         return {"return": ret}
+
+    def _formatClient(self):
+        ret = "UUID:%s" % (self.uuid)
+        if self.hostname is not None:
+            ret = "%s(%s)" % (self.hostname, ret)
+        return ret
 
 
 class GbsCtrlSessionException(Exception):
