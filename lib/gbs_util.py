@@ -18,6 +18,13 @@ from gi.repository import GLib
 class GbsUtil:
 
     @staticmethod
+    def mergeDictWithOverwriteAsException(dict1, dict2):
+        for k in dict2.keys():
+            if k in dict1:
+                raise Exception("overwriting occured when merging two dictionaries")
+        dict1.update(dict2)
+
+    @staticmethod
     def isUserNameValid(userName):
         # from is_valid_name() in shadow-utils-4.1
         return re.search("^[a-z_][a-z0-9_-]*$", userName) is not None

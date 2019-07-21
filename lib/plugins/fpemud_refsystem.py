@@ -16,77 +16,13 @@ class PluginObject:
         self.makeConfFile = os.path.join(self.api.getRootDir(), "etc/portage/make.conf")
         self.oriMakeConfContent = None
 
-    def init_handler(self, requestObj):
-        pass
-
-    # stage2: synchronize kernel, gentoo repository and gentoo overlays
-
-    # stage3: download files
-
-    # stage4: fetch files
-
-    # stage5: download files
-
-    # stage6: build kernel
-    def stage_2_start_handler(self):
+    def stage_working_start_handler(self):
         self._check_root()
         self._prepare_root()
-        port, key = self.api.startSshService([])
-        return {
-            "ssh-port": port,
-            "ssh-key": key,
-        }
+        return {}
 
-    def stage_2_end_handler(self):
-        self.api.stopSshService()
+    def stage_working_end_handler(self):
         self._unprepare_root()
-
-    # stage7: download files
-    def stage_3_start_handler(self):
-        resultFile = os.path.join(self.api.getRootDir(), "result.txt")
-        with open(resultFile, "r") as f:
-            lines = [x.rstrip() for x in f.readlines()]
-            assert len(lines) == 3
-        os.unlink(resultFile)
-
-        self._check_root()
-        port = self.api.startSyncDownService()
-        return {
-            "rsync-port": port,
-            "kernel-built": bool(lines[0]),
-            "verstr": lines[1],
-            "postfix": lines[2],
-        }
-
-    def stage_3_end_handler(self):
-        self.api.stopSyncDownService()
-
-    # stage8: update system
-    def stage_4_start_handler(self):
-        self._check_root()
-        self._prepare_root()
-        sshPort, sshKey = self.api.startSshService(["emerge *"])
-        return {
-            "ssh-port": sshPort,
-            "ssh-key": sshKey,
-        }
-
-    def stage_4_end_handler(self):
-        self.api.stopSshService()
-        self._unprepare_root()
-
-    # stage9: download files
-    def stage_5_start_handler(self):
-        port = self.api.startSyncDownService()
-        return {
-            "rsync-port": port,
-        }
-
-    def stage_5_end_handler(self):
-        self.api.stopSyncDownService()
-
-    def disconnect_handler(self):
-        pass
 
     def _check_root(self):
         # (code is ugly)

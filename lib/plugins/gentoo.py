@@ -16,33 +16,13 @@ class PluginObject:
         self.makeConfFile = os.path.join(self.api.getRootDir(), "etc/portage/make.conf")
         self.oriMakeConfContent = None
 
-    def init_handler(self, requestObj):
-        pass
-
-    def stage_2_start_handler(self):
+    def stage_working_start_handler(self):
         self._check_root()
         self._prepare_root()
-        sshPort, sshKey = self.api.startSshService(["emerge *"])
-        return {
-            "ssh-port": sshPort,
-            "ssh-key": sshKey,
-        }
+        return {}
 
-    def stage_2_end_handler(self):
-        self.api.stopSshService()
+    def stage_working_end_handler(self):
         self._unprepare_root()
-
-    def stage_3_start_handler(self):
-        port = self.api.startSyncDownService()
-        return {
-            "rsync-port": port,
-        }
-
-    def stage_3_end_handler(self):
-        self.api.stopSyncDownService()
-
-    def disconnect_handler(self):
-        pass
 
     def _check_root(self):
         # should contain the following directories:
@@ -127,7 +107,7 @@ class PluginObject:
         varVal = m.group(1)
 
         while True:
-            m = re.search("\${(\S+)?}", varVal)
+            m = re.search("\\${(\\S+)?}", varVal)
             if m is None:
                 break
             varName2 = m.group(1)

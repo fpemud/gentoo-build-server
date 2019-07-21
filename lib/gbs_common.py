@@ -6,8 +6,6 @@ import re
 import uuid
 from OpenSSL import crypto
 from gbs_util import GbsUtil
-from services.rsyncd import RsyncService
-from services.sshd import SshService
 
 
 class GbsProtocolException(Exception):
@@ -147,34 +145,6 @@ class GbsPluginApi:
         if os.path.exists(self.procDir):
             GbsUtil.shell("/bin/umount -l %s" % (self.procDir), "retcode+stdout")
             os.rmdir(self.procDir)
-
-    def startSshService(self, cmdPatternAllowed):
-        self.sshServ = SshService(self.param, self.getUuid(), self.getIpAddress(),
-                                  self.getCertificate(), self.getRootDir(), cmdPatternAllowed)
-        self.sshServ.start()
-        return (self.sshServ.getPort(), self.sshServ.getKey())
-
-    def stopSshService(self):
-        if hasattr(self, "sshServ"):
-            self.sshServ.stop()
-            del self.sshServ
-
-    def startSyncDownService(self):
-        self.rsyncServ = RsyncService(self.param, self.getUuid(), self.getIpAddress(),
-                                      self.getCertificate(), self.getRootDir(), False)
-        self.rsyncServ.start()
-        return self.rsyncServ.getPort()
-
-    def stopSyncDownService(self):
-        if hasattr(self, "rsyncServ"):
-            self.rsyncServ.stop()
-            del self.rsyncServ
-
-    def startDistccCrossCompileService(self):
-        pass
-
-    def stopDistccCrossCompileService(self):
-        pass
 
 
 class GbsCommon:

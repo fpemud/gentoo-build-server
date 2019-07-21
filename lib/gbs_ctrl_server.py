@@ -13,7 +13,9 @@ from gbs_common import GbsCommon
 from gbs_common import GbsPluginApi
 from gbs_common import GbsProtocolException
 from gbs_common import GbsBusinessException
+from services.catfiled import CatFileService
 from services.rsyncd import RsyncService
+from services.sshd import SshService
 
 
 class GbsCtrlServer:
@@ -72,6 +74,8 @@ class GbsCtrlServer:
 
 class GbsCtrlSession:
 
+    STAGE_LIST = ["syncup", "working"]
+
     def __init__(self, parent, sslSock):
         self.parent = parent
         self.sslSock = sslSock
@@ -87,7 +91,7 @@ class GbsCtrlSession:
         self.cpuArch = None                                                         # cpu architecture
         self.mntDir = None
         self.plugin = None                                                          # plugin object
-        self.stage = None                                                           # stage number
+        self.stage = None                                                           # stage name
 
         self.threadObj.start()
 
@@ -150,15 +154,8 @@ class GbsCtrlSession:
         except (GbsCtrlSessionException, GbsProtocolException, GbsBusinessException) as e:
             logging.error("Control Server: " + str(e) + " from client \"UUID:%s\"." % (self.uuid))
         finally:
-            if self.plugin is not None:
-                assert self.stage is not None
-                if self.stage == 1:
-                    self._stage1EndHandler()                        # should raise no exception
-                else:
-                    self._invokePluginStageEndHandler(self.stage)   # should raise no exception
-                self.plugin.disconnect_handler()                    # should raise no exception
-            if self.mntDir is not None:
-                GbsCommon.systemUnmountDisk(self.parent.param, self.uuid)
+            self.__invokeStageEndHandler()      # should raise no exception
+            self.__invokeFiniHandler()          # should raise no exception
             del self.parent.sessionDict[self.sslSock]
             self.sslSock.close()
 
@@ -168,114 +165,144 @@ class GbsCtrlSession:
 
         if requestObj["command"] == "init":
             return self.cmdInit(requestObj)
-        elif requestObj["command"] == "stage":
-            return self.cmdStage(requestObj)
+        elif requestObj["command"] == "stage-syncup":
+            return self.cmdStage("syncup", requestObj)
+        elif requestObj["command"] == "stage-working":
+            return self.cmdStage("working", requestObj)
         elif requestObj["command"] == "quit":
             return self.cmdQuit(requestObj)
         else:
             raise GbsProtocolException("Unknown command")
 
     def cmdInit(self, requestObj):
+        logging.debug("Control Server: Command \"init\" received from client \"UUID:%s\"." % (self.uuid))
         try:
-            if self.stage is not None:
-                raise GbsProtocolException("Init command out of order")
-
-            logging.debug("Control Server: Init command received from client \"UUID:%s\"." % (self.uuid))
-
-            if "hostname" in requestObj:
-                self.hostname = requestObj["hostname"]
-
-            if "cpu-arch" not in requestObj:
-                raise GbsProtocolException("Missing \"cpu-arch\" in init command")
-            self.cpuArch = requestObj["cpu-arch"]
-
-            self.mntDir = GbsCommon.systemMountDisk(self.parent.param, self.uuid)
-
-            if "plugin" not in requestObj:
-                raise GbsProtocolException("Missing \"plugin\" in init command")
-            pyfname = requestObj["plugin"].replace("-", "_")
-            exec("import plugins.%s" % (pyfname))
-            self.plugin = eval("plugins.%s.PluginObject(self.parent.param, GbsPluginApi(self.parent.param, self))" % (pyfname))
-            self.plugin.init_handler(requestObj)
-
-            GbsCommon.systemSetClientInfo(self.parent.param, self.uuid, self.hostname)
-            self.stage = 0
-            logging.debug("Control Server: Init command processed from client \"UUID:%s\", plugin %s." % (self.uuid, requestObj["plugin"]))
+            self.__invokeInitHandler(requestObj)
             return {"return": {}}
         except Exception as e:
-            logging.debug("Control Server: Init command error %s from client \"UUID:%s\"." % (str(e), self.uuid))
-            if self.mntDir is not None:
-                GbsCommon.systemUnmountDisk(self.parent.param, self.uuid)
+            self.__invokeFiniHandler()
+            logging.exception("Control Server: Command \"init\" error %s from client \"UUID:%s\"." % (str(e), self.uuid))
             return {"error": str(e)}
 
-    def cmdStage(self, requestObj):
-        try:
-            if self.stage is None:
-                raise GbsProtocolException("Stage command out of order")
+    def cmdStage(self, stage, requestObj):
+        assert stage in self.STAGE_LIST
 
-            logging.debug("Control Server: Stage command received from client \"UUID:%s\", stage:%d." % (self.uuid, self.stage))
+        try:
+            if self.STAGE_LIST.index(stage) == 0 and self.stage is not None:
+                raise GbsProtocolException("Command \"stage-%s\" out of order" % (stage))
+            if self.STAGE_LIST.index(stage) > 0 and self.STAGE_LIST.index(self.stage) + 1 != self.STAGE_LIST.index(stage):
+                raise GbsProtocolException("Command \"stage-%s\" out of order" % (stage))
 
             # stage end processing
-            if self.stage == 0:
-                pass
-            elif self.stage == 1:
-                self._stage1EndHandler()
-            else:
-                self._invokePluginStageEndHandler(self.stage)
+            if self.stage is not None:
+                self.__invokeStageEndHandler()
 
             # stage start processing
-            self.stage += 1
+            logging.debug("Control Server: Command \"stage-%s\" received from client \"UUID:%s\"." % (stage, self.uuid))
+            self.stage = stage
             try:
-                ret = None
-                if self.stage == 1:
-                    ret = self._stage1StartHandler()
-                elif self.stage > 1:
-                    ret = self._invokePluginStageStartHandler(self.stage)
-                else:
-                    assert False
-                logging.debug("Control Server: Stage command processed from client \"UUID:%s\", stage:%d." % (self.uuid, self.stage))
+                ret = self.__invokeStageStartHandler(requestObj)
+                logging.debug("Control Server: Command \"stage-%s\" processed from client \"UUID:%s\"." % (stage, self.uuid))
                 return self._formatStageReturn(ret)
             except:
-                self.stage -= 1
+                self.__invokeStageEndHandler()
+                self.stage = None
                 raise
         except Exception as e:
-            logging.exception("Control Server: Stage command error %s from client \"UUID:%s\"." % (str(e), self.uuid))
+            logging.exception("Control Server: Command \"stage-%s\" error %s from client \"UUID:%s\"." % (stage, str(e), self.uuid))
             return {"error": str(e)}
 
     def cmdQuit(self, requestObj):
-        logging.debug("Control Server: Quit command from client \"UUID:%s\"." % (self.uuid))
+        logging.debug("Control Server: Command \"quit\" from client \"UUID:%s\"." % (self.uuid))
         self.bQuit = True
         return {"return": {}}
 
-    def _stage1StartHandler(self):
-        try:
-            self.rsyncServ = RsyncService(self.parent.param, self.uuid, self.sslSock.getpeername()[0],
-                                          self.sslSock.get_peer_certificate(), self.mntDir, True)
-            self.rsyncServ.start()
-            return {"rsync-port": self.rsyncServ.getPort()}
-        except:
-            self._stage1EndHandler()
-            raise
+    def _init_handler(self, requestObj):
+        if "hostname" in requestObj:
+            self.hostname = requestObj["hostname"]
 
-    def _stage1EndHandler(self):
+        if "cpu-arch" not in requestObj:
+            raise GbsProtocolException("Missing \"cpu-arch\" in command \"init\"")
+        self.cpuArch = requestObj["cpu-arch"]
+
+        self.mntDir = GbsCommon.systemMountDisk(self.parent.param, self.uuid)
+
+        if "plugin" not in requestObj:
+            raise GbsProtocolException("Missing \"plugin\" in command \"init\"")
+        pyfname = requestObj["plugin"].replace("-", "_")
+        exec("import plugins.%s" % (pyfname))
+        self.plugin = eval("plugins.%s.PluginObject(self.parent.param, GbsPluginApi(self.parent.param, self))" % (pyfname))
+
+        GbsCommon.systemSetClientInfo(self.parent.param, self.uuid, self.hostname)
+
+    def _fini_handler(self):
+        if self.mntDir is not None:
+            GbsCommon.systemUnmountDisk(self.parent.param, self.uuid)
+
+    def _stage_syncup_start_handler(self, requestObj):
+        self.rsyncServ = RsyncService(self.parent.param, self.uuid, self.sslSock.getpeername()[0],
+                                      self.sslSock.get_peer_certificate(), self.mntDir, True)
+        self.rsyncServ.start()
+        return {
+            "rsync-port": self.rsyncServ.getPort(),
+        }
+
+    def _stage_syncup_end_handler(self):
         if hasattr(self, "rsyncServ"):
             self.rsyncServ.stop()
             del self.rsyncServ
 
-    def _invokePluginStageStartHandler(self, stage):
-        try:
-            if hasattr(self.plugin, "stage_%d_start_handler" % (stage)):
-                ret = eval("self.plugin.stage_%d_start_handler()" % (stage))
-                return ret
-            else:
-                raise GbsPluginException("Stage %d is not supported" % (stage))
-        except:
-            self._invokePluginStageEndHandler(stage)
-            raise
+    def _stage_working_start_handler(self, requestObj):
+        self.sshServ = SshService(self.parent.param, self.uuid, self.sslSock.getpeername()[0],
+                                  self.sslSock.get_peer_certificate(), self.mntDir)
+        self.sshServ.start()
+        self.rsyncServ = RsyncService(self.parent.param, self.uuid, self.sslSock.getpeername()[0],
+                                      self.sslSock.get_peer_certificate(), self.mntDir, False)
+        self.rsyncServ.start()
+        self.catfileServ = CatFileService(self.parent.param, self.uuid, self.sslSock.getpeername()[0],
+                                          self.sslSock.get_peer_certificate(), self.mntDir)
+        self.catfileServ.start()
+        return {
+            "ssh-port": self.sshServ.getPot(),
+            "ssh-key": self.sshServ.getKey(),
+            "rsync-port": self.rsyncServ.getPort(),
+            "catfile-port": self.catfileServ.getPort(),
+        }
 
-    def _invokePluginStageEndHandler(self, stage):
-        if hasattr(self.plugin, "stage_%d_end_handler" % (stage)):
-            eval("self.plugin.stage_%d_end_handler()" % (stage))
+    def _stage_working_end_handler(self):
+        if hasattr(self, "catfileServ"):
+            self.catfileServ.stop()
+            del self.catfileServ
+        if hasattr(self, "rsyncServ"):
+            self.rsyncServ.stop()
+            del self.rsyncServ
+        if hasattr(self, "sshServ"):
+            self.sshServ.stop()
+            del self.sshServ
+
+    def __invokeInitHandler(self, requestObj):
+        self._init_handler(requestObj)
+        if hasattr(self.plugin, "init_handler"):
+            eval("self.plugin.init_handler(requestObj)")
+
+    def __invokeFiniHandler(self):
+        # should raise no exception
+        if hasattr(self.plugin, "fini_handler"):
+            eval("self.plugin.fini_handler()")
+        self._fini_handler()
+
+    def __invokeStageStartHandler(self, requestObj):
+        ret = eval("self._stage_%s_start_handler(requestObj)" % (self.stage))
+        if self.plugin is not None and hasattr(self.plugin, "stage_%s_start_handler" % (self.stage)):
+            ret2 = eval("self.plugin.stage_%s_start_handler(requestObj)" % (self.stage))
+            GbsUtil.mergeDictWithOverwriteAsException(ret, ret2)
+        return ret
+
+    def __invokeStageEndHandler(self):
+        # should raise no exception
+        if self.plugin is not None and hasattr(self.plugin, "stage_%s_end_handler" % (self.stage)):
+            eval("self.plugin.stage_%s_end_handler()" % (self.stage))
+        eval("self._stage_%s_end_handler()" % (self.stage))
 
     def _formatStageReturn(self, ret):
         ret["stage"] = self.stage
