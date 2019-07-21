@@ -154,8 +154,9 @@ class GbsCtrlSession:
         except (GbsCtrlSessionException, GbsProtocolException, GbsBusinessException) as e:
             logging.error("Control Server: " + str(e) + " from client \"%s\"." % (self._formatClient()))
         finally:
-            self.__invokeStageEndHandler()      # should raise no exception
-            self.__invokeFiniHandler()          # should raise no exception
+            if self.stage is not None:
+                self.__invokeStageEndHandler()      # should raise no exception
+            self.__invokeFiniHandler()              # should raise no exception
             del self.parent.sessionDict[self.sslSock]
             self.sslSock.close()
 

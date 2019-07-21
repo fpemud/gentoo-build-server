@@ -279,6 +279,9 @@ if __name__ == "__main__":
     req["plugin"] = "gentoo"
     sendRequestObj(sslSock, req)
     resp = recvReponseObj(sslSock)
+    if "error" in resp:
+        print(str(resp))
+        sys.exit(1)
 
     print(">> Sync up.")
 
