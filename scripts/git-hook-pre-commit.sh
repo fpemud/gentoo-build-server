@@ -14,7 +14,7 @@ if [ -n "$OUTPUT" ] ; then
     ERRFLAG=1
 fi
 
-OUTPUT=`pep8 ${BIN_FILES} | grep -Ev "E402|E501"`
+OUTPUT=`pycodestyle ${BIN_FILES} | grep -Ev "E402|E501|E722"`
 if [ -n "$OUTPUT" ] ; then
     echo "pep8 errors:"
     echo "$OUTPUT"
@@ -22,7 +22,7 @@ if [ -n "$OUTPUT" ] ; then
     ERRFLAG=1
 fi
 
-OUTPUT=`pep8 ${LIB_FILES} | grep -Ev "E402|E501"`
+OUTPUT=`pycodestyle ${LIB_FILES} | grep -Ev "E402|E501|E722"`
 if [ -n "$OUTPUT" ] ; then
     echo "pep8 errors:"
     echo "$OUTPUT"

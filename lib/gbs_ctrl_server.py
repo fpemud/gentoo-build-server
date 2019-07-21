@@ -29,7 +29,7 @@ class GbsCtrlServer:
         self.serverSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.serverSock.bind(('0.0.0.0', self.param.ctrlPort))
         self.serverSock.listen(5)
-        self.serverSourceId = GLib.io_add_watch(self.serverSock, GLib.IO_IN | _flagError, self.onServerAccept)
+        self.serverSocketSourceId = GLib.io_add_watch(self.serverSock, GLib.IO_IN | _flagError, self.onServerAccept)
         self.handshaker = _HandShaker(self.param.certFile, self.param.privkeyFile, self.onHandShakeComplete, self.onHandShakeError)
 
     def stop(self):
