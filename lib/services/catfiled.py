@@ -93,6 +93,7 @@ class CatFileService:
 class _CatFileThread(threading.Thread):
 
     def __init__(self, port, logFile, srcIp, srcCert, rootDir):
+        super().__init__()
         self.port = port
         self.logFile = logFile
         self.srcIp = srcIp
@@ -102,11 +103,14 @@ class _CatFileThread(threading.Thread):
 
     def start(self):
         assert self.serverSock is None
-        self.serverSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.serverSock.bind(('0.0.0.0', self.port))
-        self.serverSock.listen(1)
-        self._log("catfiled started, server socket listen on port %d." % (self.port))
-        super(self).start()
+        try:
+            self.serverSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.serverSock.bind(('0.0.0.0', self.port))
+            self.serverSock.listen(1)
+            self._log("catfiled started, server socket listen on port %d." % (self.port))
+            super().start()
+        except:
+            self.stop()
 
     def stop(self):
         if self.serverSock is not None:
