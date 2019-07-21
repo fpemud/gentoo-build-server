@@ -357,7 +357,7 @@ class _HandShaker:
 
             # HANDSHAKE_NONE
             if info.state == _HandShaker.HANDSHAKE_NONE:
-                ctx = SSL.Context()
+                ctx = SSL.Context(SSL.TLSv1_2_METHOD)
                 ctx.set_verify(SSL.VERIFY_PEER, _sslVerifyDummy)
 #                ctx.set_mode(SSL.MODE_ENABLE_PARTIAL_WRITE)                    # fixme
                 ctx.use_privatekey_file(self.privkeyFile)
