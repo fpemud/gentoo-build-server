@@ -22,7 +22,7 @@ class TestClient:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect(("127.0.0.1", port))
 
-        ctx = SSL.Context(SSL.SSLv3_METHOD)
+        ctx = SSL.Context()
         ctx.use_privatekey_file(self.keyFile)
         ctx.use_certificate_file(self.certFile)
         self.sslSock = SSL.Connection(ctx, self.sock)

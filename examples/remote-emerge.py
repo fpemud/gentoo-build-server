@@ -266,7 +266,7 @@ if __name__ == "__main__":
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((dstHostname, dstPort))
 
-    ctx = SSL.Context(SSL.SSLv3_METHOD)
+    ctx = SSL.Context()
     ctx.use_certificate_file("./cert.pem")
     ctx.use_privatekey_file("./privkey.pem")
     sslSock = SSL.Connection(ctx, sock)
