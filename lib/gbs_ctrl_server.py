@@ -38,7 +38,7 @@ class GbsCtrlServer:
         for sessObj in self.sessionDict.values():
             sessObj.stop()
         for sessObj in list(self.sessionDict.values()):     # remove element in loop, we must iterate a copied list
-            sessObj.waitForStop()
+            sessObj.join()
         self.serverSock.close()
 
     def onServerAccept(self, source, cb_condition):
@@ -65,6 +65,7 @@ class GbsCtrlServer:
 
         sessObj = GbsCtrlSession(self, sslSock)
         logging.info("Control Server: Client \"%s\" connected, UUID \"%s\"." % (sslSock.getpeername()[0], sessObj.uuid))
+        sessObj.start()
         self.sessionDict[sslSock] = sessObj
 
     def onHandShakeError(self, source, hostname, port):
@@ -72,17 +73,18 @@ class GbsCtrlServer:
         source.close()
 
 
-class GbsCtrlSession:
+class GbsCtrlSession(threading.Thread):
 
     STAGE_LIST = ["syncup", "working"]
 
     def __init__(self, parent, sslSock):
+        super(GbsCtrlSession, self).__init__()
+
         self.parent = parent
         self.sslSock = sslSock
         self.recvBuf = b''
         self.sendBuf = b''
         self.bQuit = False
-        self.threadObj = threading.Thread(target=self.run)
 
         # business data
         self.pubkey = self.sslSock.get_peer_certificate().get_pubkey()
@@ -93,14 +95,8 @@ class GbsCtrlSession:
         self.plugin = None                                                          # plugin object
         self.stage = None                                                           # stage name
 
-        self.threadObj.start()
-
     def stop(self):
         self.sslSock.shutdown()
-
-    def waitForStop(self):
-        # this function should be called after stop
-        self.threadObj.join()
 
     def run(self):
         try:
@@ -265,7 +261,7 @@ class GbsCtrlSession:
                                           self.sslSock.get_peer_certificate(), self.mntDir)
         self.catfileServ.start()
         return {
-            "ssh-port": self.sshServ.getPot(),
+            "ssh-port": self.sshServ.getPort(),
             "ssh-key": self.sshServ.getKey(),
             "rsync-port": self.rsyncServ.getPort(),
             "catfile-port": self.catfileServ.getPort(),

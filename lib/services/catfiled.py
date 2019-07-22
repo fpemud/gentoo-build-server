@@ -93,7 +93,7 @@ class CatFileService:
 class _CatFileThread(threading.Thread):
 
     def __init__(self, port, logFile, srcIp, srcCert, rootDir):
-        super().__init__()
+        super(_CatFileThread, self).__init__()
         self.port = port
         self.logFile = logFile
         self.srcIp = srcIp
@@ -108,7 +108,7 @@ class _CatFileThread(threading.Thread):
             self.serverSock.bind(('0.0.0.0', self.port))
             self.serverSock.listen(1)
             self._log("catfiled started, server socket listen on port %d." % (self.port))
-            super().start()
+            super(_CatFileThread, self).start()
         except:
             self.stop()
 
@@ -117,6 +117,10 @@ class _CatFileThread(threading.Thread):
             self.serverSock.close()
             self.serverSock = None
             self._log("catfiled stopped, server socket closed.")
+
+    def join(self):
+        if self.is_alive():
+            super(_CatFileThread, self).join()
 
     def run(self):
         bHasError = False

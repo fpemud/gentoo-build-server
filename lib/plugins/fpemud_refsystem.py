@@ -16,7 +16,7 @@ class PluginObject:
         self.makeConfFile = os.path.join(self.api.getRootDir(), "etc/portage/make.conf")
         self.oriMakeConfContent = None
 
-    def stage_working_start_handler(self):
+    def stage_working_start_handler(self, requestObj):
         self._check_root()
         self._prepare_root()
         return {}
