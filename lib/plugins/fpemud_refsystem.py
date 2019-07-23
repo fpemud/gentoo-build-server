@@ -14,7 +14,6 @@ class PluginObject:
         self.api = api
         self.resolvConfFile = os.path.join(self.api.getRootDir(), "etc/resolv.conf")
         self.makeConfFile = os.path.join(self.api.getRootDir(), "etc/portage/make.conf")
-        self.oriMakeConfContent = None
 
     def stage_working_start_handler(self, requestObj):
         self._check_root()
@@ -30,6 +29,9 @@ class PluginObject:
         # "/bin", "/boot", "/etc", "/lib", "/lib32", "/lib64", "/opt", "/sbin", "/usr", "/var/cache/edb", "/var/db/pkg", "/var/lib/portage", "/var/fpemud-refsystem"
         # should NOT contain the following files or directories:
         # "/etc/resolv.conf"
+
+        if not os.path.exists(makeConfFile):
+            raise self.api.BusinessException("/etc/portage/make.conf is not synced up")
 
         flist = os.listdir(self.api.getRootDir())
         for f in ["bin", "boot", "etc", "lib", "opt", "sbin", "usr", "var"]:
@@ -75,29 +77,24 @@ class PluginObject:
         if flist != []:
             raise self.api.BusinessException("Redundant directories %s are synced up" % (",".join(["/var/lib/" + x for x in flist])))
 
-        for f in ["etc/resolv.conf"]:
-            if os.path.exists(os.path.join(self.api.getRootDir(), f)):
-                raise self.api.BusinessException("Redundant file or directory /%s is synced up" % (f))
-
     def _prepare_root(self):
         self.api.prepareRoot()
+
+        if os.path.exists(self.resolvConfFile):
+            os.unlink(self.resolvConfFile)
         shutil.copyfile("/etc/resolv.conf", self.resolvConfFile)
-        if True:
-            with open(self.makeConfFile, "r") as f:
-                self.oriMakeConfContent = f.read()
-            self._removeMakeConfVar("FPEMUD_REFSYSTEM_BUILD_SERVER")
-            subprocess.Popen("/usr/bin/chroot \"%s\" /usr/bin/sysman update-parallelism >/dev/null" % (self.api.getRootDir()), shell=True).wait()
+
+        self.__removeMakeConfVar("FPEMUD_REFSYSTEM_BUILD_SERVER")
+        subprocess.Popen("/usr/bin/chroot \"%s\" /usr/bin/sysman update-parallelism >/dev/null" % (self.api.getRootDir()), shell=True).wait()
 
     def _unprepare_root(self):
-        if self.oriMakeConfContent is not None:
-            with open(self.makeConfFile, "w") as f:
-                f.write(self.oriMakeConfContent)
-                self.oriMakeConfContent = None
+        if os.path.exists(self.makeConfFile):
+            os.unlink(self.makeConfFile)
         if os.path.exists(self.resolvConfFile):
             os.unlink(self.resolvConfFile)
         self.api.unPrepareRoot()
 
-    def _removeMakeConfVar(self, varName):
+    def __removeMakeConfVar(self, varName):
         """Remove variable in make.conf
            Multiline variable definition is not supported yet"""
 
@@ -121,28 +118,3 @@ class PluginObject:
 
         with open(self.makeConfFile, 'w') as f:
             f.write(buf)
-
-    # def _remove_var_files(self):
-    #     # (code is ugly)
-    #     # remove anything in /var except "/var/cache/edb", "/var/db/pkg", "/var/lib/portage", "/var/portage"
-
-    #     flist = os.listdir(os.path.join(self.api.getRootDir(), "var"))
-    #     for f in ["cache", "db", "lib", "portage"]:
-    #         flist.remove(f)
-    #     for f in flist:
-    #         shutil.rmtree(os.path.join(self.api.getRootDir(), "var", f))
-
-    #     flist = os.listdir(os.path.join(self.api.getRootDir(), "var", "cache"))
-    #     flist.remove("edb")
-    #     for f in flist:
-    #         shutil.rmtree(os.path.join(self.api.getRootDir(), "var", "cache", f))
-
-    #     flist = os.listdir(os.path.join(self.api.getRootDir(), "var", "db"))
-    #     flist.remove("pkg")
-    #     for f in flist:
-    #         shutil.rmtree(os.path.join(self.api.getRootDir(), "var", "db", f))
-
-    #     flist = os.listdir(os.path.join(self.api.getRootDir(), "var", "lib"))
-    #     flist.remove("portage")
-    #     for f in flist:
-    #         shutil.rmtree(os.path.join(self.api.getRootDir(), "var", "lib", f))
