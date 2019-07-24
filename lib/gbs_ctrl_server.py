@@ -237,6 +237,8 @@ class GbsCtrlSession(threading.Thread):
         self.rsyncServ = RsyncService(self.parent.param, self.sysObj.getUuid(), self.sslSock.getpeername()[0],
                                       self.sslSock.get_peer_certificate(), self.sysObj.getMntDir(), True)
         self.rsyncServ.start()
+        logging.debug("Control Server:     rsync service on %d" % (self.rsyncServ.getPort()))
+
         return {
             "rsync-port": self.rsyncServ.getPort(),
         }
@@ -250,12 +252,18 @@ class GbsCtrlSession(threading.Thread):
         self.sshServ = SshService(self.parent.param, self.sysObj.getUuid(), self.sslSock.getpeername()[0],
                                   self.sslSock.get_peer_certificate(), self.sysObj.getMntDir())
         self.sshServ.start()
+        logging.debug("Control Server:     ssh service on %d" % (self.sshServ.getPort()))
+
         self.rsyncServ = RsyncService(self.parent.param, self.sysObj.getUuid(), self.sslSock.getpeername()[0],
                                       self.sslSock.get_peer_certificate(), self.sysObj.getMntDir(), False)
         self.rsyncServ.start()
+        logging.debug("Control Server:     rsync service on %d" % (self.rsyncServ.getPort()))
+
         self.catfileServ = CatFileService(self.parent.param, self.sysObj.getUuid(), self.sslSock.getpeername()[0],
                                           self.sslSock.get_peer_certificate(), self.sysObj.getMntDir())
         self.catfileServ.start()
+        logging.debug("Control Server:     catfile service on %d" % (self.catfileServ.getPort()))
+
         return {
             "ssh-port": self.sshServ.getPort(),
             "ssh-key": self.sshServ.getKey(),

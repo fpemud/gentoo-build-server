@@ -166,7 +166,10 @@ class _CatFileThread(threading.Thread):
 
                         # receive filename length
                         if fileNameLen is None:
-                            buf += sock.recv(struct.calcsize("!I") - len(buf))
+                            buf2 = sock.recv(struct.calcsize("!I") - len(buf))
+                            if len(buf2) == 0:
+                                raise EOFError()
+                            buf += buf2
                             if len(buf) < struct.calcsize("!I"):
                                 if self.serverSock is None:
                                     return
@@ -177,7 +180,10 @@ class _CatFileThread(threading.Thread):
 
                         # receive filename
                         if fileName is None:
-                            buf += sock.recv(fileNameLen - len(buf))
+                            buf2 = sock.recv(fileNameLen - len(buf))
+                            if len(buf2) == 0:
+                                raise EOFError()
+                            buf += buf2
                             if len(buf) < fileNameLen:
                                 if self.serverSock is None:
                                     return
@@ -223,13 +229,13 @@ class _CatFileThread(threading.Thread):
                         break
                 except Exception as e:
                     sock.close()
-                    self._log("    session closed on error %s." % (e.message))
+                    self._log("    session closed on error %s." % (e))
                     break
         except Exception as e:
             if self.serverSock is not None:
                 self.serverSock.close()
                 self.serverSock = None
-            self._log("catfiled terminated for error %s." % (e.message))
+            self._log("catfiled terminated for error %s." % (e))
             bHasError = True
         finally:
             if not bHasError:
