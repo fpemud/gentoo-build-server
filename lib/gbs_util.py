@@ -66,6 +66,7 @@ class GbsUtil:
 
     @staticmethod
     def waitTcpPort(port):
+        # bad design, would cause an extra connection for server, may send SYN, wait ACK, but not send SYN-ACK
         while True:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             try:
