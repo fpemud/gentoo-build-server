@@ -25,24 +25,24 @@ class GbsPluginApi:
         self.param = param
         self.sessObj = sessObj
 
-        self.procDir = os.path.join(self.sessObj.mntDir, "proc")
-        self.sysDir = os.path.join(self.sessObj.mntDir, "sys")
-        self.devDir = os.path.join(self.sessObj.mntDir, "dev")
-        self.runDir = os.path.join(self.sessObj.mntDir, "run")
-        self.tmpDir = os.path.join(self.sessObj.mntDir, "tmp")
-        self.varDir = os.path.join(self.sessObj.mntDir, "var")
+        self.procDir = os.path.join(self.sessObj.sysObj.getMntDir(), "proc")
+        self.sysDir = os.path.join(self.sessObj.sysObj.getMntDir(), "sys")
+        self.devDir = os.path.join(self.sessObj.sysObj.getMntDir(), "dev")
+        self.runDir = os.path.join(self.sessObj.sysObj.getMntDir(), "run")
+        self.tmpDir = os.path.join(self.sessObj.sysObj.getMntDir(), "tmp")
+        self.varDir = os.path.join(self.sessObj.sysObj.getMntDir(), "var")
         self.varTmpDir = os.path.join(self.varDir, "tmp")
-        self.homeDirForRoot = os.path.join(self.sessObj.mntDir, "root")
-        self.lostFoundDir = os.path.join(self.sessObj.mntDir, "lost+found")
+        self.homeDirForRoot = os.path.join(self.sessObj.sysObj.getMntDir(), "root")
+        self.lostFoundDir = os.path.join(self.sessObj.sysObj.getMntDir(), "lost+found")
 
         self.hasHomeDirForRoot = False
         self.hasVarDir = False
 
     def getUuid(self):
-        return self.sessObj.uuid
+        return self.sessObj.sysObj.getUuid()
 
     def getCpuArch(self):
-        return self.sessObj.cpu_arch
+        return self.sessObj.sysObj.getClientInfo().cpu_arch
 
     def getIpAddress(self):
         return self.sessObj.sslSock.getpeername()[0]
@@ -51,10 +51,10 @@ class GbsPluginApi:
         return self.sessObj.sslSock.get_peer_certificate()
 
     def getPublicKey(self):
-        return self.sessObj.pubkey
+        return self.sessObj.sysObj.pubkey
 
     def getRootDir(self):
-        return self.sessObj.mntDir
+        return self.sessObj.sysObj.getMntDir()
 
     def prepareRoot(self):
         if os.path.exists(self.procDir):
@@ -208,7 +208,7 @@ class GbsSystem:
 
         # generate disk image
         fn = _image_file(self.param, self.uuid)
-        GbsUtil.shell("/bin/dd if=/dev/zero of=%s bs=%d count=%s conv=sparse" % (fn, _mb(), self.param.imageSizeInit), "stdout")
+        GbsUtil.shell("/bin/dd if=/dev/zero of=%s bs=%d count=%s" % (fn, _mb(), self.param.imageSizeInit), "stdout")
         GbsUtil.shell("/sbin/mkfs.ext4 -O ^has_journal %s" % (fn), "stdout")
 
         self._loadClientInfo(pubkey)
@@ -229,32 +229,32 @@ class GbsSystem:
     def mount(self):
         assert self.loopDev is None
 
-        GbsUtil.ensureDir(self.mountDir)
-        GbsUtil.shell("/bin/mount %s %s" % (self.diskFile, self.mountDir))
+        GbsUtil.ensureDir(_mnt_dir(self.param, self.uuid))
+        GbsUtil.shell("/bin/mount %s %s" % (_image_file(self.param, self.uuid), _mnt_dir(self.param, self.uuid)))
         try:
-            out = GbsUtil.shell("/bin/losetup -j %s" % (self.diskFile), "stdout")
+            out = GbsUtil.shell("/bin/losetup -j %s" % (_image_file(self.param, self.uuid)), "stdout")
             m = re.match("(/dev/loop[0-9]+): .*", out)
             if m is None:
                 raise Exception("can not find loop device for mounted disk")
             self.loopDev = m.group(1)
         except:
-            GbsUtil.shell("/bin/umount %s" % (self.mountDir))
+            GbsUtil.shell("/bin/umount %s" % (_mnt_dir(self.param, self.uuid)))
 
     def unmount(self):
         if self.loopDev is None:
             return
-        GbsUtil.shell("/bin/umount %s" % (self.mountDir))
+        GbsUtil.shell("/bin/umount %s" % (_mnt_dir(self.param, self.uuid)))
 
     def enlarge(self):
         if self.loopDev is None:
             return
-        if GbsUtil.getDirFreeSpace(self.getMntDir()) >= self.param.imageSizeMinimalRemain:
+        if GbsUtil.getDirFreeSpace(_mnt_dir(self.param, self.uuid)) >= self.param.imageSizeMinimalRemain:
             return
 
-        GbsUtil.shell("/bin/dd if=/dev/zero bs=%d count=%s >>%s" % (self.diskFile, _mb(), self.stepDiskSize, self.diskFile), "stdout")
+        GbsUtil.shell("/bin/dd if=/dev/zero bs=%d count=%s >>%s" % (_image_file(self.param, self.uuid), _mb(), self.stepDiskSize, _image_file(self.param, self.uuid)), "stdout")
         if self.loopDev is not None:
-            GbsUtil.shell("/bin/losetup -c %s" % (self.diskFile))
-        GbsUtil.shell("/sbin/resize2fs %s" % (self.diskFile), "stdout")
+            GbsUtil.shell("/bin/losetup -c %s" % (_image_file(self.param, self.uuid)))
+        GbsUtil.shell("/sbin/resize2fs %s" % (_image_file(self.param, self.uuid)), "stdout")
         self.clientInfo.capacity = os.path.getsize(_image_file(self.param, self.uuid))
 
     def _loadClientInfo(self, pubkey):

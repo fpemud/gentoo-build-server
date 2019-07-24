@@ -64,7 +64,7 @@ class GbsCtrlServer:
                 return
 
         sessObj = GbsCtrlSession(self, sslSock)
-        logging.info("Control Server: Client \"%s\" connected, UUID \"%s\"." % (sslSock.getpeername()[0], sessObj.uuid))
+        logging.info("Control Server: Client \"%s\" connected, UUID \"%s\"." % (sslSock.getpeername()[0], sessObj.sysObj.getUuid()))
         sessObj.start()
         self.sessionDict[sslSock] = sessObj
 
