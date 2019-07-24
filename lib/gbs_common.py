@@ -4,6 +4,7 @@
 import os
 import re
 import uuid
+import time
 from OpenSSL import crypto
 from gbs_util import GbsUtil
 
@@ -208,7 +209,7 @@ class GbsSystem:
 
         # generate disk image
         fn = _image_file(self.param, self.uuid)
-        GbsUtil.shell("/bin/dd if=/dev/zero of=%s bs=%d count=%s" % (fn, _mb(), self.param.imageSizeInit), "stdout")
+        GbsUtil.shell("/bin/dd if=/dev/zero of=%s bs=%d count=%d conv=sparse" % (fn, _mb(), self.param.imageSizeInit), "stdout")
         GbsUtil.shell("/sbin/mkfs.ext4 -O ^has_journal %s" % (fn), "stdout")
 
         self._loadClientInfo(pubkey)
@@ -229,10 +230,11 @@ class GbsSystem:
     def mount(self):
         assert self.loopDev is None
 
+        fn = _image_file(self.param, self.uuid)
         GbsUtil.ensureDir(_mnt_dir(self.param, self.uuid))
-        GbsUtil.shell("/bin/mount %s %s" % (_image_file(self.param, self.uuid), _mnt_dir(self.param, self.uuid)))
+        GbsUtil.shell("/bin/mount %s %s" % (fn, _mnt_dir(self.param, self.uuid)))
         try:
-            out = GbsUtil.shell("/bin/losetup -j %s" % (_image_file(self.param, self.uuid)), "stdout")
+            out = GbsUtil.shell("/sbin/losetup -j %s" % (fn), "stdout").decode("utf-8")
             m = re.match("(/dev/loop[0-9]+): .*", out)
             if m is None:
                 raise Exception("can not find loop device for mounted disk")
@@ -244,7 +246,12 @@ class GbsSystem:
     def unmount(self):
         if self.loopDev is None:
             return
-        GbsUtil.shell("/bin/umount %s" % (_mnt_dir(self.param, self.uuid)))
+        for i in range(0, 10):
+            rc, out = GbsUtil.shell("/bin/umount %s" % (_mnt_dir(self.param, self.uuid)), "retcode+stdout")
+            if rc == 0:
+                return
+            time.sleep(1.0)
+        GbsUtil.shell("/bin/umount %s" % (_mnt_dir(self.param, self.uuid)), "retcode+stdout")
 
     def enlarge(self):
         if self.loopDev is None:
@@ -252,11 +259,12 @@ class GbsSystem:
         if GbsUtil.getDirFreeSpace(_mnt_dir(self.param, self.uuid)) >= self.param.imageSizeMinimalRemain:
             return
 
-        GbsUtil.shell("/bin/dd if=/dev/zero bs=%d count=%s >>%s" % (_image_file(self.param, self.uuid), _mb(), self.stepDiskSize, _image_file(self.param, self.uuid)), "stdout")
+        fn = _image_file(self.param, self.uuid)
+        GbsUtil.shell("/bin/dd if=/dev/zero of=%s seek=%d bs=%d count=%d conv=sparse oflag=seek_bytes" % (fn, os.path.getsize(fn), _mb(), self.param.imageSizeStep), "stdout")
         if self.loopDev is not None:
-            GbsUtil.shell("/bin/losetup -c %s" % (_image_file(self.param, self.uuid)))
-        GbsUtil.shell("/sbin/resize2fs %s" % (_image_file(self.param, self.uuid)), "stdout")
-        self.clientInfo.capacity = os.path.getsize(_image_file(self.param, self.uuid))
+            GbsUtil.shell("/sbin/losetup -c %s" % (self.loopDev))
+        GbsUtil.shell("/sbin/resize2fs %s" % (fn), "stdout")
+        self.clientInfo.capacity = os.path.getsize(fn)
 
     def _loadClientInfo(self, pubkey):
         self.clientInfo = GbsClientInfo()

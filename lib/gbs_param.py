@@ -21,8 +21,8 @@ class GbsParam:
 
         self.keySize = 1024
 
-        self.imageSizeInit = 1 * 1024          # 10GB
-        self.imageSizeStep = 1 * 1024          # 10GB
+        self.imageSizeInit = 10 * 1024          # 10GB
+        self.imageSizeStep = 10 * 1024          # 10GB
         self.imageSizeMinimalRemain = 200       # 200MB
 
         self.ctrlPort = 2108

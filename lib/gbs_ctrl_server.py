@@ -212,13 +212,17 @@ class GbsCtrlSession(threading.Thread):
 
     def _init_handler(self, requestObj):
         if "hostname" in requestObj:
+            logging.debug("Control Server:     hostname = %s" % (requestObj["hostname"]))
             self.sysObj.getClientInfo().hostname = requestObj["hostname"]
 
-        if "cpu-arch" not in requestObj:
+        if "cpu-arch" in requestObj:
+            logging.debug("Control Server:     cpu-arch = %s" % (requestObj["cpu-arch"]))
+            self.sysObj.getClientInfo().cpu_arch = requestObj["cpu-arch"]
+        else:
             raise GbsProtocolException("Missing \"cpu-arch\" in command \"init\"")
-        self.sysObj.getClientInfo().cpu_arch = requestObj["cpu-arch"]
 
         if "plugin" in requestObj:
+            logging.debug("Control Server:     plugin = %s" % (requestObj["plugin"]))
             pyfname = requestObj["plugin"].replace("-", "_")
             exec("import plugins.%s" % (pyfname))
             self.plugin = eval("plugins.%s.PluginObject(self.parent.param, GbsPluginApi(self.parent.param, self))" % (pyfname))
