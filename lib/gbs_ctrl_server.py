@@ -218,11 +218,10 @@ class GbsCtrlSession(threading.Thread):
             raise GbsProtocolException("Missing \"cpu-arch\" in command \"init\"")
         self.sysObj.getClientInfo().cpu_arch = requestObj["cpu-arch"]
 
-        if "plugin" not in requestObj:
-            raise GbsProtocolException("Missing \"plugin\" in command \"init\"")
-        pyfname = requestObj["plugin"].replace("-", "_")
-        exec("import plugins.%s" % (pyfname))
-        self.plugin = eval("plugins.%s.PluginObject(self.parent.param, GbsPluginApi(self.parent.param, self))" % (pyfname))
+        if "plugin" in requestObj:
+            pyfname = requestObj["plugin"].replace("-", "_")
+            exec("import plugins.%s" % (pyfname))
+            self.plugin = eval("plugins.%s.PluginObject(self.parent.param, GbsPluginApi(self.parent.param, self))" % (pyfname))
 
         self.sysObj.mount()
         self.sysObj.commitClientInfo()
@@ -273,12 +272,12 @@ class GbsCtrlSession(threading.Thread):
 
     def __invokeInitHandler(self, requestObj):
         self._init_handler(requestObj)
-        if hasattr(self.plugin, "init_handler"):
+        if self.plugin is not None and hasattr(self.plugin, "init_handler"):
             eval("self.plugin.init_handler(requestObj)")
 
     def __invokeFiniHandler(self):
         # should raise no exception
-        if hasattr(self.plugin, "fini_handler"):
+        if self.plugin is not None and hasattr(self.plugin, "fini_handler"):
             eval("self.plugin.fini_handler()")
         self._fini_handler()
 

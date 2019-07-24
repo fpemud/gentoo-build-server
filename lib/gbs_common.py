@@ -239,6 +239,7 @@ class GbsSystem:
             self.loopDev = m.group(1)
         except:
             GbsUtil.shell("/bin/umount %s" % (_mnt_dir(self.param, self.uuid)))
+            raise
 
     def unmount(self):
         if self.loopDev is None:
