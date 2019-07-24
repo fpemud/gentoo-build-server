@@ -9,7 +9,7 @@ import threading
 from OpenSSL import SSL
 from gi.repository import GLib
 from gbs_util import GbsUtil
-from gbs_common import GbsCommon
+from gbs_common import GbsSystem
 from gbs_common import GbsPluginApi
 from gbs_common import GbsProtocolException
 from gbs_common import GbsBusinessException
@@ -88,10 +88,7 @@ class GbsCtrlSession(threading.Thread):
 
         # business data
         self.pubkey = self.sslSock.get_peer_certificate().get_pubkey()
-        self.uuid = GbsCommon.findOrCreateSystem(self.parent.param, self.pubkey)
-        self.hostname = None
-        self.cpuArch = None                                                         # cpu architecture
-        self.mntDir = None
+        self.sysObj = GbsSystem(self.parent.param, self.pubkey)
         self.plugin = None                                                          # plugin object
         self.stage = None                                                           # stage name
 
@@ -143,10 +140,8 @@ class GbsCtrlSession(threading.Thread):
                 if len(exceptional) > 0:
                     raise GbsCtrlSessionException("Socket error")
 
-                # disk is nearly full (< 200M), enlarge the disk
-                if self.mntDir is not None:
-                    if GbsUtil.getDirFreeSpace(self.mntDir) < 200:
-                        GbsCommon.systemEnlargeDisk(self.parm, self.uuid)
+                # ensure the disk is always large enough
+                self.sysObj.enlarge()
         except (GbsCtrlSessionException, GbsProtocolException, GbsBusinessException) as e:
             logging.error("Control Server: " + str(e) + " from client \"%s\"." % (self._formatClient()))
         finally:
@@ -217,13 +212,11 @@ class GbsCtrlSession(threading.Thread):
 
     def _init_handler(self, requestObj):
         if "hostname" in requestObj:
-            self.hostname = requestObj["hostname"]
+            self.sysObj.getClientInfo().hostname = requestObj["hostname"]
 
         if "cpu-arch" not in requestObj:
             raise GbsProtocolException("Missing \"cpu-arch\" in command \"init\"")
-        self.cpuArch = requestObj["cpu-arch"]
-
-        self.mntDir = GbsCommon.systemMountDisk(self.parent.param, self.uuid)
+        self.sysObj.getClientInfo().cpu_arch = requestObj["cpu-arch"]
 
         if "plugin" not in requestObj:
             raise GbsProtocolException("Missing \"plugin\" in command \"init\"")
@@ -231,15 +224,15 @@ class GbsCtrlSession(threading.Thread):
         exec("import plugins.%s" % (pyfname))
         self.plugin = eval("plugins.%s.PluginObject(self.parent.param, GbsPluginApi(self.parent.param, self))" % (pyfname))
 
-        GbsCommon.systemSetClientInfo(self.parent.param, self.uuid, self.hostname)
+        self.sysObj.mount()
+        self.sysObj.commitClientInfo()
 
     def _fini_handler(self):
-        if self.mntDir is not None:
-            GbsCommon.systemUnmountDisk(self.parent.param, self.uuid)
+        self.sysObj.unmount()
 
     def _stage_syncup_start_handler(self, requestObj):
-        self.rsyncServ = RsyncService(self.parent.param, self.uuid, self.sslSock.getpeername()[0],
-                                      self.sslSock.get_peer_certificate(), self.mntDir, True)
+        self.rsyncServ = RsyncService(self.parent.param, self.sysObj.getUuid(), self.sslSock.getpeername()[0],
+                                      self.sslSock.get_peer_certificate(), self.sysObj.getMntDir(), True)
         self.rsyncServ.start()
         return {
             "rsync-port": self.rsyncServ.getPort(),
@@ -251,14 +244,14 @@ class GbsCtrlSession(threading.Thread):
             del self.rsyncServ
 
     def _stage_working_start_handler(self, requestObj):
-        self.sshServ = SshService(self.parent.param, self.uuid, self.sslSock.getpeername()[0],
-                                  self.sslSock.get_peer_certificate(), self.mntDir)
+        self.sshServ = SshService(self.parent.param, self.sysObj.getUuid(), self.sslSock.getpeername()[0],
+                                  self.sslSock.get_peer_certificate(), self.sysObj.getMntDir())
         self.sshServ.start()
-        self.rsyncServ = RsyncService(self.parent.param, self.uuid, self.sslSock.getpeername()[0],
-                                      self.sslSock.get_peer_certificate(), self.mntDir, False)
+        self.rsyncServ = RsyncService(self.parent.param, self.sysObj.getUuid(), self.sslSock.getpeername()[0],
+                                      self.sslSock.get_peer_certificate(), self.sysObj.getMntDir(), False)
         self.rsyncServ.start()
-        self.catfileServ = CatFileService(self.parent.param, self.uuid, self.sslSock.getpeername()[0],
-                                          self.sslSock.get_peer_certificate(), self.mntDir)
+        self.catfileServ = CatFileService(self.parent.param, self.sysObj.getUuid(), self.sslSock.getpeername()[0],
+                                          self.sslSock.get_peer_certificate(), self.sysObj.getMntDir())
         self.catfileServ.start()
         return {
             "ssh-port": self.sshServ.getPort(),
@@ -307,9 +300,9 @@ class GbsCtrlSession(threading.Thread):
         return {"return": ret}
 
     def _formatClient(self):
-        ret = "UUID:%s" % (self.uuid)
-        if self.hostname is not None:
-            ret = "%s(%s)" % (self.hostname, ret)
+        ret = "UUID:%s" % (self.sysObj.getUuid())
+        if self.sysObj.getClientInfo().hostname is not None:
+            ret = "%s(%s)" % (self.sysObj.getClientInfo().hostname, ret)
         return ret
 
 

@@ -101,8 +101,8 @@ class GbsUtil:
     def getDirFreeSpace(dirname):
         """Returns free space in MB"""
 
-        ret = GbsUtil.shell("/bin/df -m \"%s\"" % (dirname), "stdout").decode("ascii")
-        m = re.search("^.* + [0-9]+ +[0-9]+ +([0-9]+) + [0-9]+% .*$", ret, re.M)
+        ret = GbsUtil.shell("/bin/df -BM \"%s\"" % (dirname), "stdout").decode("ascii")
+        m = re.search("^.* + [0-9]+M +[0-9]+M +([0-9]+)M +[0-9]+% .*$", ret, re.M)
         return int(m.group(1))
 
     @staticmethod

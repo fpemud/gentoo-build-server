@@ -30,7 +30,7 @@ class PluginObject:
         # should NOT contain the following files or directories:
         # "/etc/resolv.conf"
 
-        if not os.path.exists(makeConfFile):
+        if not os.path.exists(self.makeConfFile):
             raise self.api.BusinessException("/etc/portage/make.conf is not synced up")
 
         flist = os.listdir(self.api.getRootDir())

@@ -3,7 +3,7 @@
 
 import os
 from gbs_util import GbsUtil
-from gbs_common import GbsCommon
+from gbs_common import GbsSystemDatabase
 
 
 class GbsCmd:
@@ -23,7 +23,7 @@ class GbsCmd:
         if not os.path.exists(self.param.runDir):
             raise Exception("not started")
 
-        for uuid in GbsCommon.getSystemUuidList(self.param):
-            info = GbsCommon.systemGetClientInfo(self.param, uuid)
+        for uuid in GbsSystemDatabase.getUuidList(self.param):
+            info = GbsSystemDatabase.getClientInfo(self.param, uuid)
             if info.hostname is not None:                               # fixme, should be removed in future
                 print(info.hostname)

@@ -16,14 +16,6 @@ class GbsBusinessException(Exception):
     pass
 
 
-class GbsClientInfo:
-
-    def __init__(self):
-        self.hostname = None
-        self.capacity = None            # how much harddisk this client occupy
-        self.ssh_pubkey = None
-
-
 class GbsPluginApi:
 
     ProtocolException = GbsProtocolException
@@ -50,7 +42,7 @@ class GbsPluginApi:
         return self.sessObj.uuid
 
     def getCpuArch(self):
-        return self.sessObj.cpuArch
+        return self.sessObj.cpu_arch
 
     def getIpAddress(self):
         return self.sessObj.sslSock.getpeername()[0]
@@ -147,52 +139,25 @@ class GbsPluginApi:
             os.rmdir(self.procDir)
 
 
-class GbsCommon:
+class GbsClientInfo:
+
+    def __init__(self):
+        self.hostname = None
+        self.cpu_arch = None
+        self.capacity = None            # how much harddisk this client occupy
+        self.ssh_pubkey = None
+
+
+class GbsSystemDatabase:
 
     @staticmethod
-    def findOrCreateSystem(param, pubkey):
-        pubkey = crypto.dump_publickey(crypto.FILETYPE_PEM, pubkey)
-
-        # ensure cache directory exists
-        if not os.path.exists(param.cacheDir):
-            os.makedirs(param.cacheDir)
-
-        # find system
-        for oldUuid in os.listdir(param.cacheDir):
-            with open(_ssh_pubkey_file(param, oldUuid), "rb") as f:
-                if pubkey == f.read():
-                    return oldUuid
-
-        # create new system
-        newUuid = uuid.uuid4().hex
-        dirname = os.path.join(param.cacheDir, newUuid)
-        os.makedirs(dirname)
-
-        # record public key
-        with open(_ssh_pubkey_file(param, newUuid), "wb") as f:
-            f.write(pubkey)
-
-        # generate disk image
-        fn = _image_file(param, newUuid)
-#        GbsUtil.shell("/bin/dd if=/dev/zero of=%s bs=%d count=%s conv=sparse" % (fn, _gb(), param.imageSizeStep), "stdout")
-        GbsUtil.shell("/bin/dd if=/dev/zero of=%s bs=%d count=%s conv=sparse" % (fn, _gb(), 40), "stdout")                              # fixme, on-line enlarg don't work
-        GbsUtil.shell("/sbin/mkfs.ext4 -O ^has_journal %s" % (fn), "stdout")
-
-        return newUuid
-
-    @staticmethod
-    def getSystemUuidList(param):
+    def getUuidList(param):
         if not os.path.exists(param.cacheDir):
             return []
         return os.listdir(param.cacheDir)
 
     @staticmethod
-    def systemSetClientInfo(param, uuid, hostname):
-        with open(_info_file(param, uuid), "w") as f:
-            f.write("hostname = %s\n" % (hostname if hostname is not None else ""))
-
-    @staticmethod
-    def systemGetClientInfo(param, uuid):
+    def getClientInfo(param, uuid):
         ret = GbsClientInfo()
 
         if os.path.exists(_info_file(param, uuid)):                     # fixme, should be removed in future
@@ -209,34 +174,105 @@ class GbsCommon:
 
         return ret
 
-    @staticmethod
-    def systemEnlargeDisk(param, uuid):
-        fn = _image_file(param, uuid)
-        GbsUtil.shell("/sbin/resize2fs %s %dG" % (fn, os.path.getsize(fn) / _gb() + param.imageSizeStep))
 
-    @staticmethod
-    def findSystemBySshPublicKey(param, key):
-        for fn in os.listdir(param.varDir):
-            if not fn.endswith(".pub"):
-                continue
-            with open(os.path.join(param.varDir, fn, "r")) as f:
-                if f.read() == key:
-                    m = re.search("^(.*)::(.*).pub$", fn)
-                    assert m is not None
-                    return (m.group(1), m.group(2))
-        return None
+class GbsSystem:
 
-    @staticmethod
-    def systemMountDisk(param, uuid):
-        dirname = _mnt_dir(param, uuid)
-        GbsUtil.ensureDir(dirname)
-        GbsUtil.shell("/bin/mount %s %s" % (_image_file(param, uuid), dirname))
-        return dirname
+    def __init__(self, param, pubkey):
+        self.param = param
+        self.uuid = None
+        self.clientInfo = None
+        self.loopDev = None
 
-    @staticmethod
-    def systemUnmountDisk(param, uuid):
-        dirname = _mnt_dir(param, uuid)
-        GbsUtil.shell("/bin/umount -l %s" % (dirname))      # fixme, why "-l"?
+        pubkey = crypto.dump_publickey(crypto.FILETYPE_PEM, pubkey)
+
+        # ensure cache directory exists
+        if not os.path.exists(self.param.cacheDir):
+            os.makedirs(self.param.cacheDir)
+
+        # find system
+        for oldUuid in os.listdir(self.param.cacheDir):
+            with open(_ssh_pubkey_file(self.param, oldUuid), "rb") as f:
+                if pubkey == f.read():
+                    self.uuid = oldUuid
+                    self._loadClientInfo(pubkey)
+                    return
+
+        # create new system
+        self.uuid = uuid.uuid4().hex
+        dirname = os.path.join(self.param.cacheDir, self.uuid)
+        os.makedirs(dirname)
+
+        # record public key
+        with open(_ssh_pubkey_file(self.param, self.uuid), "wb") as f:
+            f.write(pubkey)
+
+        # generate disk image
+        fn = _image_file(self.param, self.uuid)
+        GbsUtil.shell("/bin/dd if=/dev/zero of=%s bs=%d count=%s conv=sparse" % (fn, _mb(), self.param.imageSizeInit), "stdout")
+        GbsUtil.shell("/sbin/mkfs.ext4 -O ^has_journal %s" % (fn), "stdout")
+
+        self._loadClientInfo(pubkey)
+
+    def getUuid(self):
+        return self.uuid
+
+    def getClientInfo(self):
+        return self.clientInfo
+
+    def commitClientInfo(self):
+        with open(_info_file(self.param, self.uuid), "w") as f:
+            f.write("hostname = %s\n" % (self.clientInfo.hostname if self.clientInfo.hostname is not None else ""))
+
+    def getMntDir(self):
+        return _mnt_dir(self.param, self.uuid)
+
+    def mount(self):
+        assert self.loopDev is None
+
+        GbsUtil.ensureDir(self.mountDir)
+        GbsUtil.shell("/bin/mount %s %s" % (self.diskFile, self.mountDir))
+        try:
+            out = GbsUtil.shell("/bin/losetup -j %s" % (self.diskFile), "stdout")
+            m = re.match("(/dev/loop[0-9]+): .*", out)
+            if m is None:
+                raise Exception("can not find loop device for mounted disk")
+            self.loopDev = m.group(1)
+        except:
+            GbsUtil.shell("/bin/umount %s" % (self.mountDir))
+
+    def unmount(self):
+        if self.loopDev is None:
+            return
+        GbsUtil.shell("/bin/umount %s" % (self.mountDir))
+
+    def enlarge(self):
+        if self.loopDev is None:
+            return
+        if GbsUtil.getDirFreeSpace(self.getMntDir()) >= self.param.imageSizeMinimalRemain:
+            return
+
+        GbsUtil.shell("/bin/dd if=/dev/zero bs=%d count=%s >>%s" % (self.diskFile, _mb(), self.stepDiskSize, self.diskFile), "stdout")
+        if self.loopDev is not None:
+            GbsUtil.shell("/bin/losetup -c %s" % (self.diskFile))
+        GbsUtil.shell("/sbin/resize2fs %s" % (self.diskFile), "stdout")
+        self.clientInfo.capacity = os.path.getsize(_image_file(self.param, self.uuid))
+
+    def _loadClientInfo(self, pubkey):
+        self.clientInfo = GbsClientInfo()
+
+        if os.path.exists(_info_file(self.param, self.uuid)):                     # fixme, should be removed in future
+            with open(_info_file(self.param, self.uuid), "r") as f:
+                buf = f.read()
+                m = re.match("^hostname = (.*)$", buf, re.M)
+                if m is not None:
+                    self.clientInfo.hostname = m.group(1)
+
+        self.clientInfo.capacity = os.path.getsize(_image_file(self.param, self.uuid))
+        self.clientInfo.ssh_pubkey = pubkey
+
+
+def _mb():
+    return 1024 * 1024
 
 
 def _gb():
@@ -259,5 +295,14 @@ def _mnt_dir(param, uuid):
     return os.path.join(param.cacheDir, uuid, "mntdir")
 
 
-def _default_image_size():
-    return 0
+# @staticmethod
+# def findSystemBySshPublicKey(param, key):
+#     for fn in os.listdir(param.varDir):
+#         if not fn.endswith(".pub"):
+#             continue
+#         with open(os.path.join(param.varDir, fn, "r")) as f:
+#             if f.read() == key:
+#                 m = re.search("^(.*)::(.*).pub$", fn)
+#                 assert m is not None
+#                 return (m.group(1), m.group(2))
+#     return None

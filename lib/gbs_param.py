@@ -20,7 +20,10 @@ class GbsParam:
         self.privkeyFile = os.path.join(self.varDir, "privkey.pem")
 
         self.keySize = 1024
-        self.imageSizeStep = 10                                    # 10GB
+
+        self.imageSizeInit = 10 * 1024          # 10GB
+        self.imageSizeStep = 10 * 1024          # 10GB
+        self.imageSizeMinimalRemain = 200       # 200MB
 
         self.ctrlPort = 2108
         self.pidFile = os.path.join(self.runDir, "syncupd.pid")

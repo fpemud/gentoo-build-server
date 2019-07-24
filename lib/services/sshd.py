@@ -81,11 +81,11 @@ class SshService:
         with open(self.keyf) as f:
             return f.read()
 
-#$ scp foobar.example.org:/etc/ssh/ssh_host_rsa_key.pub foobar.pub
-#$ ssh-keygen -h                             \ # sign host key
-#             -s ~/.ssh/cert_signer          \ # CA key
-#             -I foobar                      \ # Key identifier
-#             -V +1w                         \ # Valid only 1 week
-#             -n foobar,foobar.example.org   \ # Valid hostnames
-#             foobar.pub                       # Host pubkey file
-#$ scp foobar-cert.pub foobar.example.org:/etc/ssh/ssh_host_rsa_key-cert.pub
+# $ scp foobar.example.org:/etc/ssh/ssh_host_rsa_key.pub foobar.pub
+# $ ssh-keygen -h                             \ # sign host key
+#              -s ~/.ssh/cert_signer          \ # CA key
+#              -I foobar                      \ # Key identifier
+#              -V +1w                         \ # Valid only 1 week
+#              -n foobar,foobar.example.org   \ # Valid hostnames
+#              foobar.pub                       # Host pubkey file
+# $ scp foobar-cert.pub foobar.example.org:/etc/ssh/ssh_host_rsa_key-cert.pub
