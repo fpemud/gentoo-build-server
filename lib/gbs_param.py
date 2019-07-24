@@ -23,7 +23,7 @@ class GbsParam:
 
         self.imageSizeInit = 10 * 1024          # 10GB
         self.imageSizeStep = 10 * 1024          # 10GB
-        self.imageSizeMinimalRemain = 200       # 200MB
+        self.imageSizeMinimalRemain = 1 * 1024  # 1GB
 
         self.ctrlPort = 2108
         self.pidFile = os.path.join(self.runDir, "syncupd.pid")
