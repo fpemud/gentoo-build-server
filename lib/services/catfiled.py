@@ -5,6 +5,7 @@ import os
 import socket
 import select
 import struct
+import traceback
 import threading
 import subprocess
 from gbs_util import GbsUtil
@@ -174,7 +175,7 @@ class _CatFileThread(threading.Thread):
                                 if self.serverSock is None:
                                     return
                                 continue
-                            fileNameLen = struct.unpack("!I", buf)
+                            fileNameLen = struct.unpack("!I", buf)[0]
                             buf = b''
                             self._log("    filename length received, %d." % (fileNameLen))
 
@@ -197,12 +198,12 @@ class _CatFileThread(threading.Thread):
                             try:
                                 with open(fileName, 'rb') as f:
                                     data = f.read()
-                                errCode = 0
+                                errCode = b'\x00'
                                 self._log("    read file completed, size %d." % (len(data)))
                             except Exception as e:
-                                data = e.message.encode("utf-8")
-                                errCode = 1
-                                self._log("    read file failed, %s." % (e.message))
+                                data = traceback.format_exc().encode("utf-8")
+                                errCode = b'\x01'
+                                self._log("    read file failed, %s." % (traceback.format_exc()))
                             bCodeAndLenSent = False
                             buf = struct.pack("!cQ", errCode, len(data))
 
@@ -229,13 +230,12 @@ class _CatFileThread(threading.Thread):
                         break
                 except Exception as e:
                     sock.close()
-                    self._log("    session closed on error %s." % (e))
-                    break
+                    self._log("    session closed on error %s." % (traceback.format_exc()))
         except Exception as e:
             if self.serverSock is not None:
                 self.serverSock.close()
                 self.serverSock = None
-            self._log("catfiled terminated for error %s." % (e))
+            self._log("catfiled terminated for error %s." % (traceback.format_exc()))
             bHasError = True
         finally:
             if not bHasError:
