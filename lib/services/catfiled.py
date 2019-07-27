@@ -196,7 +196,9 @@ class _CatFileThread(threading.Thread):
                         # read file content
                         if data is None:
                             try:
-                                with open(fileName, 'rb') as f:
+                                if not fileName.startswith("/"):
+                                    raise Exception("filename is not absolute path")
+                                with open(self.rootDir + fileName, 'rb') as f:
                                     data = f.read()
                                 errCode = b'\x00'
                                 self._log("    read file completed, size %d." % (len(data)))
