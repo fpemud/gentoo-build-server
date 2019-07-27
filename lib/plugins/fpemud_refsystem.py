@@ -24,58 +24,21 @@ class PluginObject:
         self._unprepare_root()
 
     def _check_root(self):
-        # (code is ugly)
-        # should contain and ONLY contain the following directories:
-        # "/bin", "/boot", "/etc", "/lib", "/lib32", "/lib64", "/opt", "/sbin", "/usr", "/var/cache/edb", "/var/db/pkg", "/var/lib/portage", "/var/fpemud-refsystem"
-        # should NOT contain the following files or directories:
-        # "/etc/resolv.conf"
-
         if not os.path.exists(self.makeConfFile):
             raise self.api.BusinessException("/etc/portage/make.conf is not synced up")
 
-        flist = os.listdir(self.api.getRootDir())
-        for f in ["bin", "boot", "etc", "lib", "opt", "sbin", "usr", "var"]:
-            try:
-                flist.remove(f)
-            except ValueError:
-                raise self.api.BusinessException("Directory /%s is not synced up" % (f))
-        for f in ["lib32", "lib64"]:
-            try:
-                flist.remove(f)
-            except ValueError:
-                pass
-        if flist != []:
-            raise self.api.BusinessException("Redundant directories %s are synced up" % (",".join(["/" + x for x in flist])))
-
         flist = os.listdir(os.path.join(self.api.getRootDir(), "var"))
         for f in ["db", "lib", "fpemud-refsystem"]:
-            try:
-                flist.remove(f)
-            except ValueError:
+            if f not in flist:
                 raise self.api.BusinessException("Directory /var/%s is not synced up" % (f))
-        for f in ["cache"]:
-            try:
-                flist.remove(f)
-            except ValueError:
-                pass
-        if flist != []:
-            raise self.api.BusinessException("Redundant directories %s are synced up" % (",".join(["/var/" + x for x in flist])))
 
         flist = os.listdir(os.path.join(self.api.getRootDir(), "var", "db"))
-        try:
-            flist.remove("pkg")
-        except ValueError:
+        if "pkg" not in flist:
             raise self.api.BusinessException("Directory /var/db/pkg is not synced up")
-        if flist != []:
-            raise self.api.BusinessException("Redundant directories %s are synced up" % (",".join(["/var/db/" + x for x in flist])))
 
         flist = os.listdir(os.path.join(self.api.getRootDir(), "var", "lib"))
-        try:
-            flist.remove("portage")
-        except ValueError:
+        if "portage" not in flist:
             raise self.api.BusinessException("Directory /var/lib/portage is not synced up")
-        if flist != []:
-            raise self.api.BusinessException("Redundant directories %s are synced up" % (",".join(["/var/lib/" + x for x in flist])))
 
     def _prepare_root(self):
         if os.path.exists(self.resolvConfFile):
