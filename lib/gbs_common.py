@@ -275,7 +275,7 @@ class GbsSystem:
             os.rmdir(self.devDir)
 
         if os.path.exists(self.sysDir):
-            GbsUtil.forceUnmount(self.sysDir)
+            GbsUtil.shell("/bin/umount -l %s" % (self.sysDir))      # sysDir is always busy, why?
             os.rmdir(self.sysDir)
 
         if os.path.exists(self.procDir):
