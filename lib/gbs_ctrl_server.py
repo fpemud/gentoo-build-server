@@ -75,8 +75,6 @@ class GbsCtrlServer:
 
 class GbsCtrlSession(threading.Thread):
 
-    STAGE_LIST = ["syncup", "working"]
-
     def __init__(self, parent, sslSock):
         super(GbsCtrlSession, self).__init__()
 
@@ -145,9 +143,13 @@ class GbsCtrlSession(threading.Thread):
         except (GbsCtrlSessionException, GbsProtocolException, GbsBusinessException) as e:
             logging.error("Control Server: " + str(e) + " from client \"%s\"." % (self._formatClient()))
         finally:
-            if self.stage is not None:
-                self.__invokeStageEndHandler()      # should raise no exception
-            self.__invokeFiniHandler()              # should raise no exception
+            if self.stage == "syncup":
+                self._syncupStageEndHandler()
+            elif self.stage == "working":
+                self._workingStageEndHandler()
+            else:
+                assert self.stage is None
+            self._finiHandler()
             del self.parent.sessionDict[self.sslSock]
             self.sslSock.close()
 
@@ -169,36 +171,51 @@ class GbsCtrlSession(threading.Thread):
     def cmdInit(self, requestObj):
         logging.debug("Control Server: Command \"init\" received from client \"%s\"." % (self._formatClient()))
         try:
-            self.__invokeInitHandler(requestObj)
+            self._initHandler(requestObj)
             logging.debug("Control Server: Command \"init\" processed from client \"%s\"." % (self._formatClient()))
             return {"return": {}}
         except Exception as e:
-            self.__invokeFiniHandler()
+            self._finiHandler()
             logging.exception("Control Server: Command \"init\" error %s from client \"%s\"." % (str(e), self._formatClient()))
             return {"error": str(e)}
 
     def cmdStage(self, stage, requestObj):
-        assert stage in self.STAGE_LIST
+        STAGE_LIST = ["syncup", "working"]
+        assert stage in STAGE_LIST
 
         try:
-            if self.STAGE_LIST.index(stage) == 0 and self.stage is not None:
+            if STAGE_LIST.index(stage) == 0 and self.stage is not None:
                 raise GbsProtocolException("Command \"stage-%s\" out of order" % (stage))
-            if self.STAGE_LIST.index(stage) > 0 and self.STAGE_LIST.index(self.stage) + 1 != self.STAGE_LIST.index(stage):
+            if STAGE_LIST.index(stage) > 0 and STAGE_LIST.index(self.stage) + 1 != STAGE_LIST.index(stage):
                 raise GbsProtocolException("Command \"stage-%s\" out of order" % (stage))
 
             # stage end processing
-            if self.stage is not None:
-                self.__invokeStageEndHandler()
+            if self.stage == "syncup":
+                self._syncupStageEndHandler()
+            elif self.stage == "working":
+                self._workingStageEndHandler()
+            else:
+                assert self.stage is None
 
             # stage start processing
             logging.debug("Control Server: Command \"stage-%s\" received from client \"%s\"." % (stage, self._formatClient()))
             self.stage = stage
             try:
-                ret = self.__invokeStageStartHandler(requestObj)
+                if self.stage == "syncup":
+                    ret = self._syncupStageEndHandler()
+                elif self.stage == "working":
+                    ret = self._workingStageStartHandler()
+                else:
+                    assert False
                 logging.debug("Control Server: Command \"stage-%s\" processed from client \"%s\"." % (stage, self._formatClient()))
                 return self._formatStageReturn(ret)
             except:
-                self.__invokeStageEndHandler()
+                if self.stage == "syncup":
+                    self._syncupStageEndHandler()
+                elif self.stage == "working":
+                    self._workingStageEndHandler()
+                else:
+                    assert False
                 self.stage = None
                 raise
         except Exception as e:
@@ -210,7 +227,7 @@ class GbsCtrlSession(threading.Thread):
         self.bQuit = True
         return {"return": {}}
 
-    def _init_handler(self, requestObj):
+    def _initHandler(self, requestObj):
         if "hostname" in requestObj:
             logging.debug("Control Server:     hostname = %s" % (requestObj["hostname"]))
             self.sysObj.getClientInfo().hostname = requestObj["hostname"]
@@ -230,48 +247,85 @@ class GbsCtrlSession(threading.Thread):
         self.sysObj.mount()
         self.sysObj.commitClientInfo()
 
-    def _fini_handler(self):
+        if self.plugin is not None and hasattr(self.plugin, "init_handler"):
+            self.plugin.init_handler(requestObj)
+
+    def _finiHandler(self):
+        # should raise no exception
+        if self.plugin is not None and hasattr(self.plugin, "fini_handler"):
+            self.plugin.fini_handler()
         self.sysObj.unmount()
 
-    def _stage_syncup_start_handler(self, requestObj):
+    def _syncupStageStartHandler(self, requestObj):
+        ret = []
+
+        # invoke plugin start handler
+        if self.plugin is not None and hasattr(self.plugin, "stage_syncup_start_handler"):
+            ret2 = self.plugin.stage_syncup_start_handler(requestObj)
+            GbsUtil.mergeDictWithOverwriteAsException(ret, ret2)
+
+        # start rsync service
         self.rsyncServ = RsyncService(self.parent.param, self.sysObj.getUuid(), self.sslSock.getpeername()[0],
                                       self.sslSock.get_peer_certificate(), self.sysObj.getMntDir(), True)
         self.rsyncServ.start()
         logging.debug("Control Server:     rsync service on %d" % (self.rsyncServ.getPort()))
-
-        return {
+        GbsUtil.mergeDictWithOverwriteAsException(ret, {
             "rsync-port": self.rsyncServ.getPort(),
-        }
+        })
 
-    def _stage_syncup_end_handler(self):
+        return ret
+
+    def _syncupStageEndHandler(self):
+        # should raise no exception
         if hasattr(self, "rsyncServ"):
             self.rsyncServ.stop()
             del self.rsyncServ
+        if self.plugin is not None and hasattr(self.plugin, "stage_syncup_end_handler"):
+            self.plugin.stage_syncup_end_handler()
 
-    def _stage_working_start_handler(self, requestObj):
+    def _workingStageStartHandler(self, requestObj):
+        ret = []
+
+        # prepare root directory
+        self.sysObj.prepareRoot()
+
+        # invoke plugin start handler
+        if self.plugin is not None and hasattr(self.plugin, "stage_working_start_handler"):
+            ret2 = self.plugin.stage_working_start_handler(requestObj)
+            GbsUtil.mergeDictWithOverwriteAsException(ret, ret2)
+
+        # start ssh service
         self.sshServ = SshService(self.parent.param, self.sysObj.getUuid(), self.sslSock.getpeername()[0],
                                   self.sslSock.get_peer_certificate(), self.sysObj.getMntDir())
         self.sshServ.start()
         logging.debug("Control Server:     ssh service on %d" % (self.sshServ.getPort()))
+        GbsUtil.mergeDictWithOverwriteAsException(ret, {
+            "ssh-port": self.sshServ.getPort(),
+            "ssh-key": self.sshServ.getKey(),
+        })
 
+        # start rsync service
         self.rsyncServ = RsyncService(self.parent.param, self.sysObj.getUuid(), self.sslSock.getpeername()[0],
                                       self.sslSock.get_peer_certificate(), self.sysObj.getMntDir(), False)
         self.rsyncServ.start()
         logging.debug("Control Server:     rsync service on %d" % (self.rsyncServ.getPort()))
+        GbsUtil.mergeDictWithOverwriteAsException(ret, {
+            "rsync-port": self.rsyncServ.getPort(),
+        })
 
+        # start catfile service
         self.catfileServ = CatFileService(self.parent.param, self.sysObj.getUuid(), self.sslSock.getpeername()[0],
                                           self.sslSock.get_peer_certificate(), self.sysObj.getMntDir())
         self.catfileServ.start()
         logging.debug("Control Server:     catfile service on %d" % (self.catfileServ.getPort()))
-
-        return {
-            "ssh-port": self.sshServ.getPort(),
-            "ssh-key": self.sshServ.getKey(),
-            "rsync-port": self.rsyncServ.getPort(),
+        GbsUtil.mergeDictWithOverwriteAsException(ret, {
             "catfile-port": self.catfileServ.getPort(),
-        }
+        })
 
-    def _stage_working_end_handler(self):
+        return ret
+
+    def _workingStageEndHandler(self):
+        # should raise no exception
         if hasattr(self, "catfileServ"):
             self.catfileServ.stop()
             del self.catfileServ
@@ -281,30 +335,9 @@ class GbsCtrlSession(threading.Thread):
         if hasattr(self, "sshServ"):
             self.sshServ.stop()
             del self.sshServ
-
-    def __invokeInitHandler(self, requestObj):
-        self._init_handler(requestObj)
-        if self.plugin is not None and hasattr(self.plugin, "init_handler"):
-            eval("self.plugin.init_handler(requestObj)")
-
-    def __invokeFiniHandler(self):
-        # should raise no exception
-        if self.plugin is not None and hasattr(self.plugin, "fini_handler"):
-            eval("self.plugin.fini_handler()")
-        self._fini_handler()
-
-    def __invokeStageStartHandler(self, requestObj):
-        ret = eval("self._stage_%s_start_handler(requestObj)" % (self.stage))
-        if self.plugin is not None and hasattr(self.plugin, "stage_%s_start_handler" % (self.stage)):
-            ret2 = eval("self.plugin.stage_%s_start_handler(requestObj)" % (self.stage))
-            GbsUtil.mergeDictWithOverwriteAsException(ret, ret2)
-        return ret
-
-    def __invokeStageEndHandler(self):
-        # should raise no exception
-        if self.plugin is not None and hasattr(self.plugin, "stage_%s_end_handler" % (self.stage)):
-            eval("self.plugin.stage_%s_end_handler()" % (self.stage))
-        eval("self._stage_%s_end_handler()" % (self.stage))
+        if self.plugin is not None and hasattr(self.plugin, "stage_working_end_handler"):
+            self.plugin.stage_working_end_handler()
+        self.sysObj.unPrepareRoot()
 
     def _formatStageReturn(self, ret):
         ret["stage"] = self.stage

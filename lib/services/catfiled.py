@@ -200,7 +200,7 @@ class _CatFileThread(threading.Thread):
                                     data = f.read()
                                 errCode = b'\x00'
                                 self._log("    read file completed, size %d." % (len(data)))
-                            except Exception as e:
+                            except:
                                 data = traceback.format_exc().encode("utf-8")
                                 errCode = b'\x01'
                                 self._log("    read file failed, %s." % (traceback.format_exc()))
@@ -228,10 +228,10 @@ class _CatFileThread(threading.Thread):
                         sock.close()
                         self._log("    data sent, session closed.")
                         break
-                except Exception as e:
+                except:
                     sock.close()
                     self._log("    session closed on error %s." % (traceback.format_exc()))
-        except Exception as e:
+        except:
             if self.serverSock is not None:
                 self.serverSock.close()
                 self.serverSock = None

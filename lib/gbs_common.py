@@ -57,23 +57,177 @@ class GbsPluginApi:
     def getRootDir(self):
         return self.sessObj.sysObj.getMntDir()
 
+
+class GbsClientInfo:
+
+    def __init__(self):
+        self.hostname = None
+        self.cpu_arch = None
+        self.capacity = None            # how much harddisk this client occupy
+        self.ssh_pubkey = None
+
+
+class GbsSystemDatabase:
+
+    @staticmethod
+    def getUuidList(param):
+        if not os.path.exists(param.cacheDir):
+            return []
+        return os.listdir(param.cacheDir)
+
+    @staticmethod
+    def getClientInfo(param, uuid):
+        ret = GbsClientInfo()
+
+        with open(_info_file(param, uuid), "r") as f:
+            buf = f.read()
+            m = re.match("^hostname = (.*)$", buf, re.M)
+            if m is not None:
+                ret.hostname = m.group(1)
+
+        ret.capacity = os.path.getsize(_image_file(param, uuid))
+
+        with open(_ssh_pubkey_file(param, uuid), "r") as f:
+            ret.ssh_pubkey = f.read()
+
+        return ret
+
+
+class GbsSystem:
+
+    def __init__(self, param, pubkey):
+        self.param = param
+        self.uuid = None
+        self.sshPubKeyFile = None
+        self.imageFile = None
+        self.infoFile = None
+        self.mntDir = None
+        self.clientInfo = None
+        self.loopDev = None
+
+        pubkey = crypto.dump_publickey(crypto.FILETYPE_PEM, pubkey)
+
+        # ensure cache directory exists
+        if not os.path.exists(self.param.cacheDir):
+            os.makedirs(self.param.cacheDir)
+
+        # find system
+        for oldUuid in os.listdir(self.param.cacheDir):
+            with open(_ssh_pubkey_file(self.param, oldUuid), "rb") as f:
+                if pubkey == f.read():
+                    self.uuid = oldUuid
+                    self.sshPubKeyFile = _ssh_pubkey_file(self.param, self.uuid)
+                    self.imageFile = _image_file(self.param, self.uuid)
+                    self.infoFile = _info_file(self.param, self.uuid)
+                    self.mntDir = _mnt_dir(self.param, self.uuid)
+                    self._loadClientInfo(pubkey)
+                    return
+
+        # create new system
+        self.uuid = uuid.uuid4().hex
+        dirname = os.path.join(self.param.cacheDir, self.uuid)
+        os.makedirs(dirname)
+
+        # record public key
+        self.sshPubKeyFile = _ssh_pubkey_file(self.param, self.uuid)
+        with open(self.sshPubKeyFile, "wb") as f:
+            f.write(pubkey)
+
+        # generate disk image
+        self.imageFile = _image_file(self.param, self.uuid)
+        GbsUtil.shell("/bin/dd if=/dev/zero of=%s bs=%d count=%d conv=sparse" % (self.imageFile, _mb(), self.param.imageSizeInit), "stdout")
+        GbsUtil.shell("/sbin/mkfs.ext4 -O ^has_journal %s" % (self.imageFile), "stdout")
+
+        # create information file
+        self.infoFile = _info_file(self.param, self.uuid)
+        GbsUtil.touchFile(self.infoFile)
+
+        # create mount directory
+        self.mntDir = _mnt_dir(self.param, self.uuid)
+        GbsUtil.ensureDir(self.mntDir)
+
+        self._loadClientInfo(pubkey)
+
+    def getUuid(self):
+        return self.uuid
+
+    def getClientInfo(self):
+        return self.clientInfo
+
+    def commitClientInfo(self):
+        with open(self.infoFile, "w") as f:
+            f.write("hostname = %s\n" % (self.clientInfo.hostname if self.clientInfo.hostname is not None else ""))
+
+    def getMntDir(self):
+        return self.mntDir
+
+    def mount(self):
+        assert self.loopDev is None
+
+        GbsUtil.shell("/bin/mount %s %s" % (self.imageFile, self.mntDir))
+        try:
+            out = GbsUtil.shell("/sbin/losetup -j %s" % (self.imageFile), "stdout").decode("utf-8")
+            m = re.match("(/dev/loop[0-9]+): .*", out)
+            if m is None:
+                raise Exception("can not find loop device for mounted disk")
+            self.loopDev = m.group(1)
+        except:
+            GbsUtil.shell("/bin/umount %s" % (self.mntDir))
+            raise
+
+    def unmount(self):
+        if self.loopDev is None:
+            return
+        for i in range(0, 10):
+            rc, out = GbsUtil.shell("/bin/umount %s" % (self.mntDir), "retcode+stdout")
+            if rc == 0:
+                return
+            time.sleep(1.0)
+        GbsUtil.shell("/bin/umount %s" % (self.mntDir), "retcode+stdout")
+
+    def enlarge(self):
+        if self.loopDev is None:
+            return
+        if GbsUtil.getDirFreeSpace(self.mntDir) >= self.param.imageSizeMinimalRemain:
+            return
+
+        GbsUtil.shell("/bin/dd if=/dev/zero of=%s seek=%d bs=%d count=%d conv=sparse oflag=seek_bytes" % (self.imageFile, os.path.getsize(self.imageFile), _mb(), self.param.imageSizeStep), "stdout")
+        if self.loopDev is not None:
+            GbsUtil.shell("/sbin/losetup -c %s" % (self.loopDev))
+        GbsUtil.shell("/sbin/resize2fs %s" % (self.imageFile), "stdout")
+        self.clientInfo.capacity = os.path.getsize(self.imageFile)
+
     def prepareRoot(self):
-        if os.path.exists(self.procDir):
-            raise self.BusinessException("Redundant directory /proc is synced up")
-        if os.path.exists(self.sysDir):
-            raise self.BusinessException("Redundant directory /sys is synced up")
-        if os.path.exists(self.devDir):
-            raise self.BusinessException("Redundant directory /dev is synced up")
-        if os.path.exists(self.runDir):
-            raise self.BusinessException("Redundant directory /run is synced up")
-        if os.path.exists(self.tmpDir):
-            raise self.BusinessException("Redundant directory /tmp is synced up")
-        if os.path.exists(self.varTmpDir):
-            raise self.BusinessException("Redundant directory /var/tmp is synced up")
-        if os.path.exists(self.lostFoundDir):
-            raise self.BusinessException("Directory /lost+found should not exist")
+        assert self.loopDev is not None
+
+        self.procDir = os.path.join(self.mntDir, "proc")
+        self.sysDir = os.path.join(self.mntDir, "sys")
+        self.devDir = os.path.join(self.mntDir, "dev")
+        self.runDir = os.path.join(self.mntDir, "run")
+        self.tmpDir = os.path.join(self.mntDir, "tmp")
+        self.varDir = os.path.join(self.mntDir, "var")
+        self.varTmpDir = os.path.join(self.varDir, "tmp")
+        self.homeDirForRoot = os.path.join(self.mntDir, "root")
+        self.lostFoundDir = os.path.join(self.mntDir, "lost+found")
+        self.hasVarDir = os.path.exists(self.varDir)
+        self.hasHomeDirForRoot = os.path.exists(self.homeDirForRoot)
 
         try:
+            if os.path.exists(self.procDir):
+                raise Exception("Redundant directory /proc is synced up")
+            if os.path.exists(self.sysDir):
+                raise Exception("Redundant directory /sys is synced up")
+            if os.path.exists(self.devDir):
+                raise Exception("Redundant directory /dev is synced up")
+            if os.path.exists(self.runDir):
+                raise Exception("Redundant directory /run is synced up")
+            if os.path.exists(self.tmpDir):
+                raise Exception("Redundant directory /tmp is synced up")
+            if os.path.exists(self.varTmpDir):
+                raise Exception("Redundant directory /var/tmp is synced up")
+            if os.path.exists(self.lostFoundDir):
+                raise Exception("Directory /lost+found should not exist")
+
             os.mkdir(self.procDir)
             GbsUtil.shell("/bin/mount -t proc proc %s" % (self.procDir), "stdout")
 
@@ -92,25 +246,20 @@ class GbsPluginApi:
             os.chmod(self.tmpDir, 0o1777)
             GbsUtil.shell("/bin/mount -t tmpfs tmpfs %s -o nosuid,nodev" % (self.tmpDir), "stdout")
 
-            if not os.path.exists(self.varDir):
+            if not self.hasVarDir:
                 os.mkdir(self.varDir)
-                self.hasVarDir = False
-            else:
-                self.hasVarDir = True
-
             os.mkdir(self.varTmpDir)
 
-            if not os.path.exists(self.homeDirForRoot):
+            if not self.hasHomeDirForRoot:
                 os.mkdir(self.homeDirForRoot)
                 os.chmod(self.homeDirForRoot, 0o700)
-                self.hasHomeDirForRoot = False
-            else:
-                self.hasHomeDirForRoot = True
         except:
             self.unPrepareRoot()
             raise
 
     def unPrepareRoot(self):
+        assert self.loopDev is not None
+
         if not self.hasHomeDirForRoot:
             GbsUtil.forceDelete(self.homeDirForRoot)
 
@@ -139,144 +288,28 @@ class GbsPluginApi:
             GbsUtil.shell("/bin/umount -l %s" % (self.procDir), "retcode+stdout")
             os.rmdir(self.procDir)
 
-
-class GbsClientInfo:
-
-    def __init__(self):
-        self.hostname = None
-        self.cpu_arch = None
-        self.capacity = None            # how much harddisk this client occupy
-        self.ssh_pubkey = None
-
-
-class GbsSystemDatabase:
-
-    @staticmethod
-    def getUuidList(param):
-        if not os.path.exists(param.cacheDir):
-            return []
-        return os.listdir(param.cacheDir)
-
-    @staticmethod
-    def getClientInfo(param, uuid):
-        ret = GbsClientInfo()
-
-        if os.path.exists(_info_file(param, uuid)):                     # fixme, should be removed in future
-            with open(_info_file(param, uuid), "r") as f:
-                buf = f.read()
-                m = re.match("^hostname = (.*)$", buf, re.M)
-                if m is not None:
-                    ret.hostname = m.group(1)
-
-        ret.capacity = os.path.getsize(_image_file(param, uuid))
-
-        with open(_ssh_pubkey_file(param, uuid), "r") as f:
-            ret.ssh_pubkey = f.read()
-
-        return ret
-
-
-class GbsSystem:
-
-    def __init__(self, param, pubkey):
-        self.param = param
-        self.uuid = None
-        self.clientInfo = None
-        self.loopDev = None
-
-        pubkey = crypto.dump_publickey(crypto.FILETYPE_PEM, pubkey)
-
-        # ensure cache directory exists
-        if not os.path.exists(self.param.cacheDir):
-            os.makedirs(self.param.cacheDir)
-
-        # find system
-        for oldUuid in os.listdir(self.param.cacheDir):
-            with open(_ssh_pubkey_file(self.param, oldUuid), "rb") as f:
-                if pubkey == f.read():
-                    self.uuid = oldUuid
-                    self._loadClientInfo(pubkey)
-                    return
-
-        # create new system
-        self.uuid = uuid.uuid4().hex
-        dirname = os.path.join(self.param.cacheDir, self.uuid)
-        os.makedirs(dirname)
-
-        # record public key
-        with open(_ssh_pubkey_file(self.param, self.uuid), "wb") as f:
-            f.write(pubkey)
-
-        # generate disk image
-        fn = _image_file(self.param, self.uuid)
-        GbsUtil.shell("/bin/dd if=/dev/zero of=%s bs=%d count=%d conv=sparse" % (fn, _mb(), self.param.imageSizeInit), "stdout")
-        GbsUtil.shell("/sbin/mkfs.ext4 -O ^has_journal %s" % (fn), "stdout")
-
-        self._loadClientInfo(pubkey)
-
-    def getUuid(self):
-        return self.uuid
-
-    def getClientInfo(self):
-        return self.clientInfo
-
-    def commitClientInfo(self):
-        with open(_info_file(self.param, self.uuid), "w") as f:
-            f.write("hostname = %s\n" % (self.clientInfo.hostname if self.clientInfo.hostname is not None else ""))
-
-    def getMntDir(self):
-        return _mnt_dir(self.param, self.uuid)
-
-    def mount(self):
-        assert self.loopDev is None
-
-        fn = _image_file(self.param, self.uuid)
-        GbsUtil.ensureDir(_mnt_dir(self.param, self.uuid))
-        GbsUtil.shell("/bin/mount %s %s" % (fn, _mnt_dir(self.param, self.uuid)))
-        try:
-            out = GbsUtil.shell("/sbin/losetup -j %s" % (fn), "stdout").decode("utf-8")
-            m = re.match("(/dev/loop[0-9]+): .*", out)
-            if m is None:
-                raise Exception("can not find loop device for mounted disk")
-            self.loopDev = m.group(1)
-        except:
-            GbsUtil.shell("/bin/umount %s" % (_mnt_dir(self.param, self.uuid)))
-            raise
-
-    def unmount(self):
-        if self.loopDev is None:
-            return
-        for i in range(0, 10):
-            rc, out = GbsUtil.shell("/bin/umount %s" % (_mnt_dir(self.param, self.uuid)), "retcode+stdout")
-            if rc == 0:
-                return
-            time.sleep(1.0)
-        GbsUtil.shell("/bin/umount %s" % (_mnt_dir(self.param, self.uuid)), "retcode+stdout")
-
-    def enlarge(self):
-        if self.loopDev is None:
-            return
-        if GbsUtil.getDirFreeSpace(_mnt_dir(self.param, self.uuid)) >= self.param.imageSizeMinimalRemain:
-            return
-
-        fn = _image_file(self.param, self.uuid)
-        GbsUtil.shell("/bin/dd if=/dev/zero of=%s seek=%d bs=%d count=%d conv=sparse oflag=seek_bytes" % (fn, os.path.getsize(fn), _mb(), self.param.imageSizeStep), "stdout")
-        if self.loopDev is not None:
-            GbsUtil.shell("/sbin/losetup -c %s" % (self.loopDev))
-        GbsUtil.shell("/sbin/resize2fs %s" % (fn), "stdout")
-        self.clientInfo.capacity = os.path.getsize(fn)
+        del self.procDir
+        del self.sysDir
+        del self.devDir
+        del self.runDir
+        del self.tmpDir
+        del self.varDir
+        del self.varTmpDir
+        del self.homeDirForRoot
+        del self.lostFoundDir
+        del self.hasVarDir
+        del self.hasHomeDirForRoot
 
     def _loadClientInfo(self, pubkey):
         self.clientInfo = GbsClientInfo()
 
-        if os.path.exists(_info_file(self.param, self.uuid)):                     # fixme, should be removed in future
-            with open(_info_file(self.param, self.uuid), "r") as f:
-                buf = f.read()
-                m = re.match("^hostname = (.*)$", buf, re.M)
-                if m is not None:
-                    self.clientInfo.hostname = m.group(1)
+        with open(self.infoFile, "r") as f:
+            buf = f.read()
+            m = re.match("^hostname = (.*)$", buf, re.M)
+            if m is not None:
+                self.clientInfo.hostname = m.group(1)
 
-        self.clientInfo.capacity = os.path.getsize(_image_file(self.param, self.uuid))
+        self.clientInfo.capacity = os.path.getsize(self.imageFile)
         self.clientInfo.ssh_pubkey = pubkey
 
 

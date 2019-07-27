@@ -78,8 +78,6 @@ class PluginObject:
             raise self.api.BusinessException("Redundant directories %s are synced up" % (",".join(["/var/lib/" + x for x in flist])))
 
     def _prepare_root(self):
-        self.api.prepareRoot()
-
         if os.path.exists(self.resolvConfFile):
             os.unlink(self.resolvConfFile)
         shutil.copyfile("/etc/resolv.conf", self.resolvConfFile)
@@ -92,7 +90,6 @@ class PluginObject:
             os.unlink(self.makeConfFile)
         if os.path.exists(self.resolvConfFile):
             os.unlink(self.resolvConfFile)
-        self.api.unPrepareRoot()
 
     def __removeMakeConfVar(self, varName):
         """Remove variable in make.conf

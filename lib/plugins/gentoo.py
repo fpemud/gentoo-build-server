@@ -39,7 +39,6 @@ class PluginObject:
                 raise self.api.BusinessException("Redundant file or directory /%s is synced up" % (f))
 
     def _prepare_root(self):
-        self.api.prepareRoot()
         shutil.copyfile("/etc/resolv.conf", self.resolvConfFile)
         if True:
             with open(self.makeConfFile, "r") as f:
@@ -53,7 +52,6 @@ class PluginObject:
                 self.oriMakeConfContent = None
         if os.path.exists(self.resolvConfFile):
             os.unlink(self.resolvConfFile)
-        self.api.unPrepareRoot()
 
     def _updateParallelism(self):
         memsize = self._getPhysicalMemorySize()
