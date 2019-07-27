@@ -202,9 +202,9 @@ class GbsCtrlSession(threading.Thread):
             self.stage = stage
             try:
                 if self.stage == "syncup":
-                    ret = self._syncupStageEndHandler()
+                    ret = self._syncupStageStartHandler(requestObj)
                 elif self.stage == "working":
-                    ret = self._workingStageStartHandler()
+                    ret = self._workingStageStartHandler(requestObj)
                 else:
                     assert False
                 logging.debug("Control Server: Command \"stage-%s\" processed from client \"%s\"." % (stage, self._formatClient()))
@@ -257,7 +257,7 @@ class GbsCtrlSession(threading.Thread):
         self.sysObj.unmount()
 
     def _syncupStageStartHandler(self, requestObj):
-        ret = []
+        ret = {}
 
         # invoke plugin start handler
         if self.plugin is not None and hasattr(self.plugin, "stage_syncup_start_handler"):
@@ -284,7 +284,7 @@ class GbsCtrlSession(threading.Thread):
             self.plugin.stage_syncup_end_handler()
 
     def _workingStageStartHandler(self, requestObj):
-        ret = []
+        ret = {}
 
         # prepare root directory
         self.sysObj.prepareRoot()
