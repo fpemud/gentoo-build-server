@@ -18,6 +18,15 @@ from gi.repository import GLib
 class GbsUtil:
 
     @staticmethod
+    def forceUnmount(mntDir):
+        for i in range(0, 10):
+            rc, out = GbsUtil.shell("/bin/umount %s" % (mntDir), "retcode+stdout")
+            if rc == 0:
+                return
+            time.sleep(1.0)
+        GbsUtil.shell("/bin/umount %s" % (mntDir))
+
+    @staticmethod
     def mergeDictWithOverwriteAsException(dict1, dict2):
         for k in dict2.keys():
             if k in dict1:

@@ -4,7 +4,6 @@
 import os
 import re
 import uuid
-import time
 from OpenSSL import crypto
 from gbs_util import GbsUtil
 
@@ -178,12 +177,7 @@ class GbsSystem:
     def unmount(self):
         if self.loopDev is None:
             return
-        for i in range(0, 10):
-            rc, out = GbsUtil.shell("/bin/umount %s" % (self.mntDir), "retcode+stdout")
-            if rc == 0:
-                return
-            time.sleep(1.0)
-        GbsUtil.shell("/bin/umount %s" % (self.mntDir), "retcode+stdout")
+        GbsUtil.forceUnmount(self.mntDir)
 
     def enlarge(self):
         if self.loopDev is None:
@@ -269,23 +263,23 @@ class GbsSystem:
             GbsUtil.forceDelete(self.varTmpDir)
 
         if os.path.exists(self.tmpDir):
-            GbsUtil.shell("/bin/umount -l %s" % (self.tmpDir), "retcode+stdout")
+            GbsUtil.forceUnmount(self.tmpDir)
             os.rmdir(self.tmpDir)
 
         if os.path.exists(self.runDir):
-            GbsUtil.shell("/bin/umount -l %s" % (self.runDir), "retcode+stdout")
+            GbsUtil.forceUnmount(self.runDir)
             os.rmdir(self.runDir)
 
         if os.path.exists(self.devDir):
-            GbsUtil.shell("/bin/umount -l %s" % (self.devDir), "retcode+stdout")
+            GbsUtil.forceUnmount(self.devDir)
             os.rmdir(self.devDir)
 
         if os.path.exists(self.sysDir):
-            GbsUtil.shell("/bin/umount -l %s" % (self.sysDir), "retcode+stdout")
+            GbsUtil.forceUnmount(self.sysDir)
             os.rmdir(self.sysDir)
 
         if os.path.exists(self.procDir):
-            GbsUtil.shell("/bin/umount -l %s" % (self.procDir), "retcode+stdout")
+            GbsUtil.forceUnmount(self.procDir)
             os.rmdir(self.procDir)
 
         del self.procDir
