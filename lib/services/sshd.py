@@ -53,6 +53,8 @@ class SshService:
             buf += "ChallengeResponseAuthentication no\n"
 #            buf += "PubkeyAuthentication no\n"
             buf += "AuthenticationMethods \"publickey\"\n"
+            buf += "\n"
+            buf += "AcceptEnv LANG LC_*\n"
             with open(self.cfgf, "w") as f:
                 f.write(buf)
 
