@@ -3,7 +3,7 @@
 
 import sys
 import argparse
-sys.path.append('/usr/lib/syncupd')
+sys.path.append('/usr/lib64/syncupd')
 from gbs_util import GbsUtil
 from gbs_param import GbsParam
 from gbs_cmd import GbsCmd

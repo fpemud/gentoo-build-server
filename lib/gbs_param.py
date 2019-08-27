@@ -10,9 +10,9 @@ class GbsParam:
         self.user = "root"              # fixme
         self.group = "root"             # fixme
 
-        self.libDir = "/usr/lib/syncupd"
+        self.libDir = "/usr/lib64/syncupd"
         self.runDir = "/run/syncupd"
-        self.varDir = "/var/syncupd"
+        self.varDir = "/var/lib/syncupd"
         self.cacheDir = "/var/cache/syncupd"
         self.logDir = "/var/log/syncupd"
 
