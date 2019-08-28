@@ -27,14 +27,9 @@ class PluginObject:
         if not os.path.exists(self.makeConfFile):
             raise self.api.BusinessException("/etc/portage/make.conf is not synced up")
 
-        flist = os.listdir(os.path.join(self.api.getRootDir(), "var"))
-        for f in ["db", "lib", "fpemud-refsystem"]:
-            if f not in flist:
-                raise self.api.BusinessException("Directory /var/%s is not synced up" % (f))
-
-        flist = os.listdir(os.path.join(self.api.getRootDir(), "var", "db"))
-        if "pkg" not in flist:
-            raise self.api.BusinessException("Directory /var/db/pkg is not synced up")
+        for f in ["var/db/pkg", "/var/lib/portage"]:
+            if not os.path.exists(os.path.join(self.api.getRootDir(), f)):
+                raise self.api.BusinessException("File or directory /%s is not synced up" % (f))
 
         flist = os.listdir(os.path.join(self.api.getRootDir(), "var", "lib"))
         if "portage" not in flist:
