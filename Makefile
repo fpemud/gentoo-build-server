@@ -15,8 +15,8 @@ install:
 	find "$(DESTDIR)/$(prefix)/lib64/syncupd" -type f | xargs chmod 644
 	find "$(DESTDIR)/$(prefix)/lib64/syncupd" -type d | xargs chmod 755
 
-	install -d -m 0755 "$(DESTDIR)/$(prefix)/lib64/systemd/system"
-	install -m 0644 data/syncupd.service "$(DESTDIR)/$(prefix)/lib64/systemd/system"
+	install -d -m 0755 "$(DESTDIR)/$(prefix)/lib/systemd/system"
+	install -m 0644 data/syncupd.service "$(DESTDIR)/$(prefix)/lib/systemd/system"
 
 uninstall:
 	rm -Rf "$(DESTDIR)/$(prefix)/lib64/syncupd"
