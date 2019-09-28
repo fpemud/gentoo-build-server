@@ -39,9 +39,7 @@ class PluginObject:
         if os.path.exists(self.resolvConfFile):
             os.unlink(self.resolvConfFile)
         shutil.copyfile("/etc/resolv.conf", self.resolvConfFile)
-
         self.__removeMakeConfVar("FPEMUD_REFSYSTEM_BUILD_SERVER")
-        subprocess.Popen("/usr/bin/chroot \"%s\" /usr/bin/sysman update-parallelism >/dev/null" % (self.api.getRootDir()), shell=True).wait()
 
     def _unprepare_root(self):
         if os.path.exists(self.makeConfFile):
