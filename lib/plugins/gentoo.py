@@ -17,26 +17,18 @@ class PluginObject:
         self.oriMakeConfContent = None
 
     def stage_working_start_handler(self, requestObj):
-        self._check_root()
         self._prepare_root()
         return {}
 
     def stage_working_end_handler(self):
         self._unprepare_root()
 
-    def _check_root(self):
-        if not os.path.exists(self.makeConfFile):
-            raise self.api.BusinessException("/etc/portage/make.conf is not synced up")
-
-        for f in ["var/db/pkg", "/var/lib/portage"]:
-            if not os.path.exists(os.path.join(self.api.getRootDir(), f)):
-                raise self.api.BusinessException("File or directory /%s is not synced up" % (f))
-
     def _prepare_root(self):
         shutil.copyfile("/etc/resolv.conf", self.resolvConfFile)
         if True:
             with open(self.makeConfFile, "r") as f:
                 self.oriMakeConfContent = f.read()
+            self._updateMirrors()
             self._updateParallelism()
 
     def _unprepare_root(self):
@@ -47,47 +39,130 @@ class PluginObject:
         if os.path.exists(self.resolvConfFile):
             os.unlink(self.resolvConfFile)
 
+    def _updateMirrors(self):
+        # countryCode, countryName = self.__geoGetCountry()
+        countryCode = "CN"
+
+        if countryCode == "CN":
+            gentooMirrors = [
+                "http://mirrors.163.com/gentoo",
+                "https://mirrors.tuna.tsinghua.edu.cn/gentoo",
+            ]
+            rsyncMirrors = [
+                "rsync://mirrors.163.com/gentoo/distfiles",
+                "rsync://mirrors.tuna.tsinghua.edu.cn/gentoo/distfiles",
+            ]
+            kernelMirrors = [
+                "https://mirrors.tuna.tsinghua.edu.cn/kernel",
+            ]
+        else:
+            gentooMirrors = []
+            rsyncMirrors = []
+            kernelMirrors = []
+
+        # modify make.conf
+        if gentooMirrors != []:
+            gentooMirrorStr = " ".join(gentooMirrors) + " "
+        else:
+            gentooMirrorStr = ""
+        if rsyncMirrors != []:
+            rsyncMirrorStr = " ".join(rsyncMirrors) + " "
+        else:
+            rsyncMirrorStr = ""
+        if kernelMirrors != []:
+            kernelMirrorStr = " ".join(kernelMirrors) + " "
+        else:
+            kernelMirrorStr = ""
+        self.__setMakeConfVar("GENTOO_MIRRORS", "%s${GENTOO_DEFAULT_MIRROR}" % (gentooMirrorStr))
+        self.__setMakeConfVar("RSYNC_MIRRORS", "%s${RSYNC_DEFAULT_MIRROR}" % (rsyncMirrorStr))
+        self.__setMakeConfVar("KERNEL_MIRRORS", "%s${KERNEL_DEFAULT_MIRROR}" % (kernelMirrorStr))
+
     def _updateParallelism(self):
-        memsize = self._getPhysicalMemorySize()
-        ejobnum = max(memsize / 2, 1)
+        # gather system information
+        cpuNum = multiprocessing.cpu_count()                   # cpu core number
+        memSize = self.__getPhysicalMemorySize()               # memory size in GiB
 
-        # work on MAKEOPTS variable
+        # determine parallelism parameters
+        buildInMemory = (memSize >= 24)
+        if buildInMemory:
+            jobcountMake = cpuNum + 2
+            jobcountEmerge = cpuNum
+            loadavg = cpuNum
+        else:
+            jobcountMake = cpuNum
+            jobcountEmerge = cpuNum
+            loadavg = max(1, cpuNum - 1)
+
+        # check/fix MAKEOPTS variable
         # for bug 559064 and 592660, we need to add -j and -l, it sucks
-        value = self._getMakeConfVar("MAKEOPTS")
-        m = re.search(" *-j[0-9]+\\b", value)
-        if m is not None:
-            value = value.replace(m.group(0), "")
-        m = re.search(" *-l[0-9]+\\b", value)
-        if m is not None:
-            value = value.replace(m.group(0), "")
-        m = re.search("--jobs(=([0-9]+))?\\b", value)
-        if m is None:
-            value += " --jobs=%d" % (multiprocessing.cpu_count())
-        else:
-            value = value.replace(m.group(0), "--jobs=%d" % (multiprocessing.cpu_count()))
-        m = re.search("--load-average(=([0-9\\.]+))?\\b", value)
-        if m is None:
-            value += " --load-average=%d" % (multiprocessing.cpu_count())
-        else:
-            value = value.replace(m.group(0), "--load-average=%d" % (multiprocessing.cpu_count()))
-        value += " -j%d -l%d" % (multiprocessing.cpu_count(), multiprocessing.cpu_count())
-        self._setMakeConfVar("MAKEOPTS", value.lstrip())
+        value = self.__getMakeConfVar("MAKEOPTS")
+        if True:
+            m = re.search("--jobs(=([0-9]+))?\\b", value)
+            if m is None:
+                value += " --jobs=%d" % (jobcountMake)
+                self.__setMakeConfVar("MAKEOPTS", value.lstrip())
+            elif m.group(2) is None or int(m.group(2)) != jobcountMake:
+                value = value.replace(m.group(0), "--jobs=%d" % (jobcountMake))
+                self.__setMakeConfVar("MAKEOPTS", value.lstrip())
+        value = self.__getMakeConfVar("MAKEOPTS")
+        if True:
+            m = re.search("--load-average(=([0-9\\.]+))?\\b", value)
+            if m is None:
+                value += " --load-average=%d" % (loadavg)
+                self.__setMakeConfVar("MAKEOPTS", value.lstrip())
+            elif m.group(2) is None or int(m.group(2)) != loadavg:
+                value = value.replace(m.group(0), "--load-average=%d" % (loadavg))
+                self.__setMakeConfVar("MAKEOPTS", value.lstrip())
+        value = self.__getMakeConfVar("MAKEOPTS")
+        if True:
+            m = re.search(" *-j([0-9]+)?\\b", value)
+            if m is None:
+                value += " -j%d" % (jobcountMake)
+                self.__setMakeConfVar("MAKEOPTS", value.lstrip())
+            elif m.group(1) is None or int(m.group(1)) != jobcountMake:
+                value = value.replace(m.group(0), "-j%d" % (jobcountMake))
+                self.__setMakeConfVar("MAKEOPTS", value.lstrip())
+        value = self.__getMakeConfVar("MAKEOPTS")
+        if True:
+            m = re.search(" *-l([0-9]+)?\\b", value)
+            if m is None:
+                value += " -l%d" % (loadavg)
+                self.__setMakeConfVar("MAKEOPTS", value.lstrip())
+            elif m.group(1) is None or int(m.group(1)) != loadavg:
+                value = value.replace(m.group(0), "-l%d" % (loadavg))
+                self.__setMakeConfVar("MAKEOPTS", value.lstrip())
 
-        # work on EMERGE_DEFAULT_OPTS variable
-        value = self._getMakeConfVar("EMERGE_DEFAULT_OPTS")
-        m = re.search("--jobs(=([0-9]+))?\\b", value)
-        if m is None:
-            value += " --jobs=%d" % (ejobnum)
-        else:
-            value = value.replace(m.group(0), "--jobs=%d" % (ejobnum))
-        m = re.search("--load-average(=([0-9\\.]+))?\\b", value)
-        if m is None:
-            value += " --load-average=%d" % (multiprocessing.cpu_count())
-        else:
-            value = value.replace(m.group(0), "--load-average=%d" % (multiprocessing.cpu_count()))
-        self._setMakeConfVar("EMERGE_DEFAULT_OPTS", value.lstrip())
+        # check/fix EMERGE_DEFAULT_OPTS variable
+        value = self.__getMakeConfVar("EMERGE_DEFAULT_OPTS")
+        if True:
+            m = re.search("--jobs(=([0-9]+))?\\b", value)
+            if m is None:
+                value += " --jobs=%d" % (jobcountEmerge)
+                self.__setMakeConfVar("EMERGE_DEFAULT_OPTS", value.lstrip())
+            elif m.group(2) is None or int(m.group(2)) != jobcountEmerge:
+                value = value.replace(m.group(0), " --jobs=%d" % (jobcountEmerge))
+                self.__setMakeConfVar("EMERGE_DEFAULT_OPTS", value.lstrip())
+        value = self.__getMakeConfVar("EMERGE_DEFAULT_OPTS")
+        if True:
+            m = re.search("--load-average(=([0-9\\.]+))?\\b", value)
+            if m is None:
+                value += " --load-average=%d" % (loadavg)
+                self.__setMakeConfVar("EMERGE_DEFAULT_OPTS", value.lstrip())
+            elif m.group(2) is None or int(m.group(2)) != loadavg:
+                value = value.replace(m.group(0), " --load-average=%d" % (loadavg))
+                self.__setMakeConfVar("EMERGE_DEFAULT_OPTS", value.lstrip())
 
-    def _getMakeConfVar(self, varName):
+        # check/fix PORTAGE_TMPDIR variable
+        value = self.__getMakeConfVar("PORTAGE_TMPDIR")
+        if True:
+            if buildInMemory:
+                tdir = "/tmp"
+            else:
+                tdir = "/var/tmp"
+            if value != tdir:
+                self.__setMakeConfVar("PORTAGE_TMPDIR", tdir)
+
+    def __getMakeConfVar(self, varName):
         """Returns variable value, returns "" when not found
            Multiline variable definition is not supported yet"""
 
@@ -105,7 +180,7 @@ class PluginObject:
             if m is None:
                 break
             varName2 = m.group(1)
-            varVal2 = self._getMakeConfVar(self.makeConfFile, varName2)
+            varVal2 = self.__getMakeConfVar(self.makeConfFile, varName2)
             if varVal2 is None:
                 varVal2 = ""
 
@@ -113,7 +188,7 @@ class PluginObject:
 
         return varVal
 
-    def _setMakeConfVar(self, varName, varValue):
+    def __setMakeConfVar(self, varName, varValue):
         """Create or set variable in make.conf
            Multiline variable definition is not supported yet"""
 
@@ -136,7 +211,7 @@ class PluginObject:
                     f.write("\n")
                 f.write("%s=\"%s\"\n" % (varName, varValue))
 
-    def _getPhysicalMemorySize(self):
+    def __getPhysicalMemorySize(self):
         with open("/proc/meminfo", "r") as f:
             # We return memory size in GB.
             # Since the memory size shown in /proc/meminfo is always a
