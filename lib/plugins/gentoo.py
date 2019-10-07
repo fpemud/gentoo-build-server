@@ -49,8 +49,8 @@ class PluginObject:
                 "https://mirrors.tuna.tsinghua.edu.cn/gentoo",
             ]
             rsyncMirrors = [
-                "rsync://mirrors.163.com/gentoo/distfiles",
-                "rsync://mirrors.tuna.tsinghua.edu.cn/gentoo/distfiles",
+                "rsync://rsync.cn.gentoo.org/gentoo-portage",
+                "rsync://rsync1.cn.gentoo.org/gentoo-portage",
             ]
             kernelMirrors = [
                 "https://mirrors.tuna.tsinghua.edu.cn/kernel",
