@@ -17,6 +17,7 @@ class RsyncService:
         self.upOrDown = upOrDown
 
         self.rsyncdCfgFile = os.path.join(self.param.tmpDir, uuid + "-rsyncd.conf")
+        self.rsyncdLockFile = os.path.join(self.param.tmpDir, uuid + "-rsyncd.lock")
         self.rsyncdLogFile = os.path.join(self.param.logDir, uuid + "-rsyncd.log")
         self.stunnelClientCertFile = os.path.join(self.param.tmpDir, uuid + "-cert.pem")
         self.stunnelCfgFile = os.path.join(self.param.tmpDir, uuid + "-stunnel.conf")
@@ -52,6 +53,7 @@ class RsyncService:
         GbsUtil.forceDelete(self.stunnelRndFile)
         GbsUtil.forceDelete(self.stunnelCfgFile)
         GbsUtil.forceDelete(self.stunnelClientCertFile)
+        GbsUtil.forceDelete(self.rsyncdLockFile)
         GbsUtil.forceDelete(self.rsyncdCfgFile)
 
     def getPort(self):
@@ -65,6 +67,7 @@ class RsyncService:
 
     def _runRsyncDeamon(self):
         buf = ""
+        buf += "lock file = %s\n" % (self.rsyncdLockFile)
         buf += "log file = %s\n" % (self.rsyncdLogFile)
         buf += "\n"
         buf += "port = %s\n" % (self.rsyncPort)
