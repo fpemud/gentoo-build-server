@@ -97,7 +97,7 @@ class PluginObject:
         # for bug 559064 and 592660, we need to add -j and -l, it sucks
         value = self.__getMakeConfVar("MAKEOPTS")
         if True:
-            m = re.search("--jobs(=([0-9]+))?\\b", value)
+            m = re.search("\\B--jobs(=([0-9]+))?\\b", value)
             if m is None:
                 value += " --jobs=%d" % (jobcountMake)
                 self.__setMakeConfVar("MAKEOPTS", value.lstrip())
@@ -106,7 +106,7 @@ class PluginObject:
                 self.__setMakeConfVar("MAKEOPTS", value.lstrip())
         value = self.__getMakeConfVar("MAKEOPTS")
         if True:
-            m = re.search("--load-average(=([0-9\\.]+))?\\b", value)
+            m = re.search("\\B--load-average(=([0-9\\.]+))?\\b", value)
             if m is None:
                 value += " --load-average=%d" % (loadavg)
                 self.__setMakeConfVar("MAKEOPTS", value.lstrip())
@@ -115,7 +115,7 @@ class PluginObject:
                 self.__setMakeConfVar("MAKEOPTS", value.lstrip())
         value = self.__getMakeConfVar("MAKEOPTS")
         if True:
-            m = re.search(" *-j([0-9]+)?\\b", value)
+            m = re.search("\\B-j([0-9]+)?\\b", value)
             if m is None:
                 value += " -j%d" % (jobcountMake)
                 self.__setMakeConfVar("MAKEOPTS", value.lstrip())
@@ -124,7 +124,7 @@ class PluginObject:
                 self.__setMakeConfVar("MAKEOPTS", value.lstrip())
         value = self.__getMakeConfVar("MAKEOPTS")
         if True:
-            m = re.search(" *-l([0-9]+)?\\b", value)
+            m = re.search("\\B-l([0-9]+)?\\b", value)
             if m is None:
                 value += " -l%d" % (loadavg)
                 self.__setMakeConfVar("MAKEOPTS", value.lstrip())
@@ -135,21 +135,21 @@ class PluginObject:
         # check/fix EMERGE_DEFAULT_OPTS variable
         value = self.__getMakeConfVar("EMERGE_DEFAULT_OPTS")
         if True:
-            m = re.search("--jobs(=([0-9]+))?\\b", value)
+            m = re.search("\\B--jobs(=([0-9]+))?\\b", value)
             if m is None:
                 value += " --jobs=%d" % (jobcountEmerge)
                 self.__setMakeConfVar("EMERGE_DEFAULT_OPTS", value.lstrip())
             elif m.group(2) is None or int(m.group(2)) != jobcountEmerge:
-                value = value.replace(m.group(0), " --jobs=%d" % (jobcountEmerge))
+                value = value.replace(m.group(0), "--jobs=%d" % (jobcountEmerge))
                 self.__setMakeConfVar("EMERGE_DEFAULT_OPTS", value.lstrip())
         value = self.__getMakeConfVar("EMERGE_DEFAULT_OPTS")
         if True:
-            m = re.search("--load-average(=([0-9\\.]+))?\\b", value)
+            m = re.search("\\B--load-average(=([0-9\\.]+))?\\b", value)
             if m is None:
                 value += " --load-average=%d" % (loadavg)
                 self.__setMakeConfVar("EMERGE_DEFAULT_OPTS", value.lstrip())
             elif m.group(2) is None or int(m.group(2)) != loadavg:
-                value = value.replace(m.group(0), " --load-average=%d" % (loadavg))
+                value = value.replace(m.group(0), "--load-average=%d" % (loadavg))
                 self.__setMakeConfVar("EMERGE_DEFAULT_OPTS", value.lstrip())
 
         # check/fix PORTAGE_TMPDIR variable
