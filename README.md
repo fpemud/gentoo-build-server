@@ -1,7 +1,8 @@
 syncupd
 ====
 
-Offload workload to cloud by synchronizing your whole system up there.
+Offload the workload to the cloud by synchronizing the entire system up there.
+
 Valid workloads are:
 1. installing packages through building (especailly for Gentoo user, like me)
 2. checking system integrity
