@@ -32,6 +32,9 @@ syncupd creates an disk image with ext4 filesystem in /var/cache/syncupd.
 when client connects, syncupd auto mount this disk image as /var/cache/syncupd/XXX/mntdir, chroot into
 it and run the user command.
 
+sync up would cause hours when first use it.
+but from the second time on syncup should take no time unless your system has a big change.
+
 
 Example
 ===
