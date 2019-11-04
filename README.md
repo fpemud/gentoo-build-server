@@ -19,7 +19,7 @@ Steps:
 4. systemctl start syncupd
 
 
-Rationale
+How does it work?
 ===
 
 syncupd and it's client carry on the following operations:
