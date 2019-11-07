@@ -26,7 +26,7 @@ class GbsParam:
         self.imageSizeMinimalRemain = 1 * 1024  # 1GB
 
         self.ctrlPort = 2108
+        self.avahiSupport = True
         self.pidFile = os.path.join(self.runDir, "syncupd.pid")
         self.logLevel = None
         self.tmpDir = None
-        self.machineList = []
