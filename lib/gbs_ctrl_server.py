@@ -41,6 +41,9 @@ class GbsCtrlServer:
             sessObj.join()
         self.serverSock.close()
 
+    def getPort(self):
+        return self.param.ctrlPort
+
     def onServerAccept(self, source, cb_condition):
         assert not (cb_condition & _flagError)
         assert source == self.serverSock

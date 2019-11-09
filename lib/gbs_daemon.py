@@ -8,6 +8,7 @@ import shutil
 import logging
 from gi.repository import GLib
 from gbs_util import GbsUtil
+from gbs_util import AvahiServiceRegister
 from gbs_ctrl_server import GbsCtrlServer
 
 
@@ -16,11 +17,15 @@ class GbsDaemon:
     def __init__(self, param):
         self.param = param
         self.ctrlServer = None
+        self.avahiObj = None
         self.mainloop = None
 
     def run(self):
+        if not os.path.exists(self.param.varDir):
+            os.makedirs(self.param.varDir)
         GbsUtil.mkDirAndClear(self.param.tmpDir)
         GbsUtil.mkDirAndClear(self.param.runDir)
+
         try:
             logging.getLogger().addHandler(logging.StreamHandler(sys.stderr))
             logging.getLogger().setLevel(GbsUtil.getLoggingLevel(self.param.logLevel))
@@ -33,14 +38,22 @@ class GbsDaemon:
             with open(self.param.pidFile, "w") as f:
                 f.write(str(os.getpid()))
 
-            # check certificate and private key
+            # check certificate and private key, generate if neccessary
             if not os.path.exists(self.param.certFile) or not os.path.exists(self.param.privkeyFile):
-                raise GbsDaemonException("Certificate and private key not found")
+                cert, key = GbsUtil.genSelfSignedCertAndKey("syncupd", self.param.keySize)
+                GbsUtil.dumpCertAndKey(cert, key, self.param.certFile, self.param.privkeyFile)
+                logging.info('Certificate and private key generated.')
 
             # start control server
             self.ctrlServer = GbsCtrlServer(self.param)
             self.ctrlServer.start()
             logging.info('Control server started.')
+
+            # register serivce
+            if self.param.avahiSupport:
+                self.avahiObj = AvahiServiceRegister()
+                self.avahiObj.add_service("", "_syncup._tcp", self.ctrlServer.getPort())
+                self.avahiObj.start()
 
             # start main loop
             logging.info("Mainloop begins.")
@@ -51,6 +64,8 @@ class GbsDaemon:
             self.mainloop.run()
             logging.info("Mainloop exits.")
         finally:
+            if self.avahiObj is not None:
+                self.avahiObj.stop()
             if self.ctrlServer is not None:
                 self.ctrlServer.stop()
             logging.shutdown()

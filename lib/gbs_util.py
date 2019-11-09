@@ -3,6 +3,7 @@
 
 import os
 import re
+import sys
 import pwd
 import grp
 import dbus
@@ -377,7 +378,7 @@ class AvahiServiceRegister:
                 assert False
 
     def _createServer(self):
-        assert self._server is None and self.__retryCreateServerTimer is None
+        assert self._server is None and self._retryCreateServerTimer is None
         assert self._entryGroup is None
         try:
             self._server = dbus.SystemBus().Interface(dbus.SystemBus().get_object("org.freedesktop.Avahi", "/"), "org.freedesktop.Avahi.Server")
@@ -385,14 +386,15 @@ class AvahiServiceRegister:
                 self._registerService()
             self._server.connect_to_signal("StateChanged", self.onSeverStateChanged)
         except:
+            logging.error("Avahi create server failed", sys.exc_info())
             self._releaseServer()
             self._retryCreateServer()
 
     def _releaseServer(self):
         assert self._entryGroup is None
-        if self.__retryCreateServerTimer is not None:
-            GLib.source_remove(self.__retryCreateServerTimer)
-            self.__retryCreateServerTimer = None
+        if self._retryCreateServerTimer is not None:
+            GLib.source_remove(self._retryCreateServerTimer)
+            self._retryCreateServerTimer = None
         if self._server is not None:
             self._server.release()
             self._server = None
@@ -405,7 +407,7 @@ class AvahiServiceRegister:
             self._unregisterService()
 
     def _registerService(self):
-        assert self._entryGroup is None and self.__retryRegisterServiceTimer is None
+        assert self._entryGroup is None and self._retryRegisterServiceTimer is None
         try:
             self._entryGroup = dbus.SystemBus().Interface(dbus.SystemBus().get_object("org.freedesktop.Avahi", self._server.EntryGroupNew()),
                                                           "org.freedesktop.Avahi.EntryGroup")
@@ -420,13 +422,14 @@ class AvahiServiceRegister:
             self._entryGroup.Commit()
             self._entryGroup.connect_to_signal("StateChanged", self.onEntryGroupStateChanged)
         except:
+            logging.error("Avahi register service failed", sys.exc_info())
             self._unregisterService()
             self._retryRegisterService()
 
     def _unregisterService(self):
-        if self.__retryRegisterServiceTimer is not None:
-            GLib.source_remove(self.__retryRegisterServiceTimer)
-            self.__retryRegisterServiceTimer = None
+        if self._retryRegisterServiceTimer is not None:
+            GLib.source_remove(self._retryRegisterServiceTimer)
+            self._retryRegisterServiceTimer = None
         if self._entryGroup is not None:
             try:
                 if self._entryGroup.GetState() != 4:        # avahi.ENTRY_GROUP_FAILURE
@@ -455,10 +458,8 @@ class AvahiServiceRegister:
 
     def __timeoutCreateServer(self):
         self._retryCreateServerTimer = None
-        try:
-            self._createServer()
-        finally:
-            return False
+        self._createServer()                    # no exception in self._createServer()
+        return False
 
     def _retryRegisterService(self):
         assert self._retryRegisterServiceTimer is None
@@ -466,7 +467,5 @@ class AvahiServiceRegister:
 
     def __timeoutRegisterService(self):
         self._retryRegisterServiceTimer = None
-        try:
-            self._registerService()
-        finally:
-            return False
+        self._registerService()                 # no exception in self._registerService()
+        return False
