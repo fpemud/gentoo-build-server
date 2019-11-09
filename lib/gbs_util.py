@@ -329,15 +329,19 @@ class AvahiServiceRegister:
 
     """
     Exampe:
-        obj = AvahiServiceRegister("_http._tcp", 80)
+        obj = AvahiServiceRegister()
+        obj.add_service("_http", 80)
         obj.start()
         obj.stop()
     """
 
-    def __init__(self, service, port, interfaces=None):
-        self.service = service
-        self.port = port
-        assert self.interfaces is None
+    def __init__(self):
+        self.serviceList = []
+
+    def add_service(service_name, port)
+        assert service_name.endswith("._tcp") or service_name.endswith("._udp")
+        assert isinstance(port, int)
+        self.serviceList.append((service_name, port))
 
     def start(self):
         DBusGMainLoop(set_as_default=True)
@@ -402,13 +406,14 @@ class AvahiServiceRegister:
         try:
             self._entryGroup = dbus.SystemBus().Interface(dbus.SystemBus().get_object("org.freedesktop.Avahi", self._server.EntryGroupNew()),
                                                           "org.freedesktop.Avahi.EntryGroup")
-            self._entryGroup.AddService(-1,             # avahi.IF_UNSPEC
-                                        0,              # avahi.PROTO_UNSPEC
-                                        dbus.UInt32(0),
-                                        name,               # FIXME
-                                        stype,              # FIXME
-                                        "",
-                                        dbus.UInt16(port))
+            for serviceName, port in self.serviceList:
+                self._entryGroup.AddService(-1,             # avahi.IF_UNSPEC
+                                            0,              # avahi.PROTO_UNSPEC
+                                            dbus.UInt32(0),
+                                            serviceName,        # FIXME
+                                            stype,              # FIXME
+                                            "",
+                                            dbus.UInt16(port))
             self._entryGroup.Commit()
             self._entryGroup.connect_to_signal("StateChanged", self.onEntryGroupStateChanged)
         except:
@@ -462,97 +467,3 @@ class AvahiServiceRegister:
             self._registerService()
         finally:
             return False
-
-
-
-
-
-    def clientCallback(self, client, state):
-        if state == avahi.ClientState.GA_CLIENT_STATE_S_RUNNING:
-            self._registerService()
-        elif state in [avahi.ClientState.GA_CLIENT_STATE_S_COLLISION, avahi.ClientState.GA_CLIENT_STATE_S_REGISTERING]:
-            if self.group is not None:
-                self.group.reset()
-        elif state == avahi.ClientState.GA_CLIENT_STATE_FAILURE:
-            if (avahi_client_errno(client) == AVAHI_ERR_DISCONNECTED) {
-                del client
-
-                self.client = Avahi.Client(flags=Avahi.ClientState.GA_CLIENT_FLAG_NO_FAIL)
-                self.client.connect_to_signal("state-changed", self.clientCallback)
-
-                rs_log_crit("Failed to contact server: %s\n", avahi_strerror(error));
-                avahi_threaded_poll_quit(ctx->threaded_poll);
-
-            } else {
-                rs_log_crit("Client failure: %s\n", avahi_strerror(avahi_client_errno(client)));
-                avahi_threaded_poll_quit(ctx->threaded_poll);
-            }
-        elif state == avahi.ClientState.GA_CLIENT_STATE_CONNECTING:
-            pass
-        else:
-            assert False
-
-
-
-
-
-
-
-
-
-
-static void client_callback(AvahiClient *client, AvahiClientState state, void *userdata) {
-    struct context *ctx = userdata;
-
-    ctx->client = client;
-
-    switch (state) {
-
-        case AVAHI_CLIENT_S_COLLISION:
-        case AVAHI_CLIENT_S_REGISTERING:
-
-            if (ctx->group)
-                avahi_entry_group_reset(ctx->group);
-
-            break;
-
-        case AVAHI_CLIENT_FAILURE:
-
-            if (avahi_client_errno(client) == AVAHI_ERR_DISCONNECTED) {
-                int error;
-
-                avahi_client_free(ctx->client);
-                ctx->client = NULL;
-                ctx->group = NULL;
-
-                /* Reconnect to the server */
-
-                if (!(ctx->client = avahi_client_new(
-                              avahi_threaded_poll_get(ctx->threaded_poll),
-                              AVAHI_CLIENT_NO_FAIL,
-                              client_callback,
-                              ctx,
-                              &error))) {
-
-                    rs_log_crit("Failed to contact server: %s\n", avahi_strerror(error));
-                    avahi_threaded_poll_quit(ctx->threaded_poll);
-                }
-
-            } else {
-                rs_log_crit("Client failure: %s\n", avahi_strerror(avahi_client_errno(client)));
-                avahi_threaded_poll_quit(ctx->threaded_poll);
-            }
-
-            break;
-
-        case AVAHI_CLIENT_CONNECTING:
-            ;
-    }
-}
-
-
-
-
-
-
-
