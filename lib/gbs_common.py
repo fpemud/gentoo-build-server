@@ -6,6 +6,7 @@ import re
 import uuid
 from OpenSSL import crypto
 from gbs_util import GbsUtil
+from gbs_param import GbsConst
 
 
 class GbsProtocolException(Exception):
@@ -55,6 +56,18 @@ class GbsPluginApi:
 
     def getRootDir(self):
         return self.sessObj.sysObj.getMntDir()
+
+
+class GbsPluginManager:
+
+    @staticmethod
+    def getPluginNameList():
+        return [x.replace(".py", "") for x in os.listdir(GbsConst.pluginsDir)]
+
+    @staticmethod
+    def loadPluginObject(pluginName, param, ctrlSession):
+        exec("import plugins.%s" % (pluginName))
+        return eval("plugins.%s.PluginObject(param, GbsPluginApi(param, ctrlSession))" % (pluginName))
 
 
 class GbsClientInfo:
@@ -134,7 +147,7 @@ class GbsSystem:
 
         # generate disk image
         self.imageFile = _image_file(self.param, self.uuid)
-        GbsUtil.shell("/bin/dd if=/dev/zero of=%s bs=%d count=%d conv=sparse" % (self.imageFile, _mb(), self.param.imageSizeInit), "stdout")
+        GbsUtil.shell("/bin/dd if=/dev/zero of=%s bs=%d count=%d conv=sparse" % (self.imageFile, _mb(), GbsConst.imageSizeInit), "stdout")
         GbsUtil.shell("/sbin/mkfs.ext4 -O ^has_journal %s" % (self.imageFile), "stdout")
 
         # create information file
@@ -182,10 +195,10 @@ class GbsSystem:
     def enlarge(self):
         if self.loopDev is None:
             return
-        if GbsUtil.getDirFreeSpace(self.mntDir) >= self.param.imageSizeMinimalRemain:
+        if GbsUtil.getDirFreeSpace(self.mntDir) >= GbsConst.imageSizeMinimalRemain:
             return
 
-        GbsUtil.shell("/bin/dd if=/dev/zero of=%s seek=%d bs=%d count=%d conv=sparse oflag=seek_bytes" % (self.imageFile, os.path.getsize(self.imageFile), _mb(), self.param.imageSizeStep), "stdout")
+        GbsUtil.shell("/bin/dd if=/dev/zero of=%s seek=%d bs=%d count=%d conv=sparse oflag=seek_bytes" % (self.imageFile, os.path.getsize(self.imageFile), _mb(), GbsConst.imageSizeStep), "stdout")
         if self.loopDev is not None:
             GbsUtil.shell("/sbin/losetup -c %s" % (self.loopDev))
         GbsUtil.shell("/sbin/resize2fs %s" % (self.imageFile), "stdout")

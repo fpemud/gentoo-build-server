@@ -4,29 +4,35 @@
 import os
 
 
+class GbsConst:
+
+    user = "root"              # fixme
+    group = "root"             # fixme
+
+    libDir = "/usr/lib64/syncupd"
+    pluginsDir = os.path.join(libDir, "plugins")
+    runDir = "/run/syncupd"
+    varDir = "/var/lib/syncupd"
+
+    keySize = 1024
+
+    imageSizeInit = 10 * 1024          # 10GB
+    imageSizeStep = 10 * 1024          # 10GB
+    imageSizeMinimalRemain = 1 * 1024  # 1GB
+
+    avahiSupport = True
+
+
 class GbsParam:
 
     def __init__(self):
-        self.user = "root"              # fixme
-        self.group = "root"             # fixme
-
-        self.libDir = "/usr/lib64/syncupd"
-        self.runDir = "/run/syncupd"
-        self.varDir = "/var/lib/syncupd"
         self.cacheDir = "/var/cache/syncupd"
         self.logDir = "/var/log/syncupd"
+        self.tmpDir = None
 
-        self.certFile = os.path.join(self.varDir, "cert.pem")
-        self.privkeyFile = os.path.join(self.varDir, "privkey.pem")
-
-        self.keySize = 1024
-
-        self.imageSizeInit = 10 * 1024          # 10GB
-        self.imageSizeStep = 10 * 1024          # 10GB
-        self.imageSizeMinimalRemain = 1 * 1024  # 1GB
+        self.certFile = os.path.join(GbsConst.varDir, "cert.pem")
+        self.privkeyFile = os.path.join(GbsConst.varDir, "privkey.pem")
 
         self.ctrlPort = 2108
-        self.avahiSupport = True
-        self.pidFile = os.path.join(self.runDir, "syncupd.pid")
+        self.pidFile = os.path.join(GbsConst.runDir, "syncupd.pid")
         self.logLevel = None
-        self.tmpDir = None

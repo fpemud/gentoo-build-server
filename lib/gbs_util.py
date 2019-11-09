@@ -333,7 +333,7 @@ class AvahiServiceRegister:
     """
     Exampe:
         obj = AvahiServiceRegister()
-        obj.add_service("_http", 80)
+        obj.add_service(socket.gethostname(), "_http", 80)
         obj.start()
         obj.stop()
     """
@@ -409,15 +409,17 @@ class AvahiServiceRegister:
         assert self._entryGroup is None and self._retryRegisterServiceTimer is None
         try:
             self._entryGroup = dbus.Interface(dbus.SystemBus().get_object("org.freedesktop.Avahi", self._server.EntryGroupNew()),
-                                                          "org.freedesktop.Avahi.EntryGroup")
+                                              "org.freedesktop.Avahi.EntryGroup")
             for serviceName, serviceType, port in self.serviceList:
-                self._entryGroup.AddService(-1,                 # avahi.IF_UNSPEC
-                                            0,                  # avahi.PROTO_UNSPEC
-                                            dbus.UInt32(0),
-                                            serviceName,
-                                            serviceType,
-                                            "",
-                                            dbus.UInt16(port))
+                self._entryGroup.AddService(-1,                 # interface = avahi.IF_UNSPEC
+                                            0,                  # protocol = avahi.PROTO_UNSPEC
+                                            dbus.UInt32(0),     # flags
+                                            serviceName,        # name
+                                            serviceType,        # type
+                                            "",                 # domain
+                                            "",                 # host
+                                            dbus.UInt16(port),  # port
+                                            "")                 # txt
             self._entryGroup.Commit()
             self._entryGroup.connect_to_signal("StateChanged", self.onEntryGroupStateChanged)
         except:

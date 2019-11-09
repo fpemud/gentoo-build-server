@@ -8,6 +8,7 @@ import tempfile
 import argparse
 sys.path.append('/usr/lib64/syncupd')
 from gbs_util import GbsUtil
+from gbs_param import GbsConst
 from gbs_param import GbsParam
 from gbs_daemon import GbsDaemon
 
@@ -37,12 +38,12 @@ try:
 
     # create tmpDir
     param.tmpDir = tempfile.mkdtemp(prefix="syncupd-")
-    GbsUtil.chown(param.tmpDir, param.user, param.group)
+    GbsUtil.chown(param.tmpDir, GbsConst.user, GbsConst.group)
 
     # start server
     GbsDaemon(param).run()
 finally:
     if param.tmpDir is not None and os.path.exists(param.tmpDir):
         shutil.rmtree(param.tmpDir)
-    if os.path.exists(param.runDir):
-        shutil.rmtree(param.runDir)
+    if os.path.exists(GbsConst.runDir):
+        shutil.rmtree(GbsConst.runDir)

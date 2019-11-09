@@ -3,6 +3,7 @@
 
 import os
 from gbs_util import GbsUtil
+from gbs_param import GbsConst
 from gbs_common import GbsSystemDatabase
 
 
@@ -12,15 +13,15 @@ class GbsCmd:
         self.param = param
 
     def cmdInitialize(self):
-        if not os.path.exists(self.param.varDir):
-            os.makedirs(self.param.varDir)
+        if not os.path.exists(GbsConst.varDir):
+            os.makedirs(GbsConst.varDir)
 
         # auto generate certificate and private key
-        cert, key = GbsUtil.genSelfSignedCertAndKey("syncupd", self.param.keySize)
+        cert, key = GbsUtil.genSelfSignedCertAndKey("syncupd", GbsConst.keySize)
         GbsUtil.dumpCertAndKey(cert, key, self.param.certFile, self.param.privkeyFile)
 
     def cmdShowClients(self):
-        if not os.path.exists(self.param.runDir):
+        if not os.path.exists(GbsConst.runDir):
             raise Exception("not started")
 
         for uuid in GbsSystemDatabase.getUuidList(self.param):

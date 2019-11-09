@@ -5,10 +5,13 @@ import os
 import sys
 import signal
 import shutil
+import socket
 import logging
 from gi.repository import GLib
 from gbs_util import GbsUtil
 from gbs_util import AvahiServiceRegister
+from gbs_param import GbsConst
+from gbs_common import GbsPluginManager
 from gbs_ctrl_server import GbsCtrlServer
 
 
@@ -21,10 +24,10 @@ class GbsDaemon:
         self.mainloop = None
 
     def run(self):
-        if not os.path.exists(self.param.varDir):
-            os.makedirs(self.param.varDir)
+        if not os.path.exists(GbsConst.varDir):
+            os.makedirs(GbsConst.varDir)
         GbsUtil.mkDirAndClear(self.param.tmpDir)
-        GbsUtil.mkDirAndClear(self.param.runDir)
+        GbsUtil.mkDirAndClear(GbsConst.runDir)
 
         try:
             logging.getLogger().addHandler(logging.StreamHandler(sys.stderr))
@@ -40,7 +43,7 @@ class GbsDaemon:
 
             # check certificate and private key, generate if neccessary
             if not os.path.exists(self.param.certFile) or not os.path.exists(self.param.privkeyFile):
-                cert, key = GbsUtil.genSelfSignedCertAndKey("syncupd", self.param.keySize)
+                cert, key = GbsUtil.genSelfSignedCertAndKey("syncupd", GbsConst.keySize)
                 GbsUtil.dumpCertAndKey(cert, key, self.param.certFile, self.param.privkeyFile)
                 logging.info('Certificate and private key generated.')
 
@@ -50,9 +53,10 @@ class GbsDaemon:
             logging.info('Control server started.')
 
             # register serivce
-            if self.param.avahiSupport:
+            if GbsConst.avahiSupport:
                 self.avahiObj = AvahiServiceRegister()
-                self.avahiObj.add_service("", "_syncup._tcp", self.ctrlServer.getPort())
+                for pluginName in GbsPluginManager.getPluginNameList():
+                    self.avahiObj.add_service(socket.gethostname(), "_syncup_%s._tcp" % (pluginName), self.ctrlServer.getPort())
                 self.avahiObj.start()
 
             # start main loop
@@ -69,7 +73,7 @@ class GbsDaemon:
             if self.ctrlServer is not None:
                 self.ctrlServer.stop()
             logging.shutdown()
-            shutil.rmtree(self.param.runDir)
+            shutil.rmtree(GbsConst.runDir)
             shutil.rmtree(self.param.tmpDir)
             logging.info("Program exits.")
 

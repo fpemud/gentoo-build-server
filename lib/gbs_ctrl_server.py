@@ -10,7 +10,7 @@ from OpenSSL import SSL
 from gi.repository import GLib
 from gbs_util import GbsUtil
 from gbs_common import GbsSystem
-from gbs_common import GbsPluginApi
+from gbs_common import GbsPluginManager
 from gbs_common import GbsProtocolException
 from gbs_common import GbsBusinessException
 from services.catfiled import CatFileService
@@ -243,9 +243,7 @@ class GbsCtrlSession(threading.Thread):
 
         if "plugin" in requestObj:
             logging.debug("Control Server:     plugin = %s" % (requestObj["plugin"]))
-            pyfname = requestObj["plugin"].replace("-", "_")
-            exec("import plugins.%s" % (pyfname))
-            self.plugin = eval("plugins.%s.PluginObject(self.parent.param, GbsPluginApi(self.parent.param, self))" % (pyfname))
+            self.plugin = GbsPluginManager.loadPluginObject(requestObj["plugin"], self.parent.param, self)
 
         self.sysObj.mount()
         self.sysObj.commitClientInfo()
