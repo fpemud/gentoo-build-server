@@ -5,6 +5,7 @@ import os
 import re
 import pwd
 import grp
+import dbus
 import time
 import random
 import logging
@@ -13,6 +14,7 @@ import subprocess
 import socket
 from OpenSSL import crypto
 from gi.repository import GLib
+from dbus.mainloop.glib import DBusGMainLoop
 
 
 class GbsUtil:
@@ -338,10 +340,11 @@ class AvahiServiceRegister:
     def __init__(self):
         self.serviceList = []
 
-    def add_service(service_name, port)
-        assert service_name.endswith("._tcp") or service_name.endswith("._udp")
+    def add_service(self, service_name, service_type, port):
+        assert isinstance(service_name, str)
+        assert service_type.endswith("._tcp") or service_type.endswith("._udp")
         assert isinstance(port, int)
-        self.serviceList.append((service_name, port))
+        self.serviceList.append((service_name, serivce_type, port))
 
     def start(self):
         DBusGMainLoop(set_as_default=True)
@@ -406,12 +409,12 @@ class AvahiServiceRegister:
         try:
             self._entryGroup = dbus.SystemBus().Interface(dbus.SystemBus().get_object("org.freedesktop.Avahi", self._server.EntryGroupNew()),
                                                           "org.freedesktop.Avahi.EntryGroup")
-            for serviceName, port in self.serviceList:
-                self._entryGroup.AddService(-1,             # avahi.IF_UNSPEC
-                                            0,              # avahi.PROTO_UNSPEC
+            for serviceName, serviceType, port in self.serviceList:
+                self._entryGroup.AddService(-1,                 # avahi.IF_UNSPEC
+                                            0,                  # avahi.PROTO_UNSPEC
                                             dbus.UInt32(0),
-                                            serviceName,        # FIXME
-                                            stype,              # FIXME
+                                            serviceName,
+                                            serviceType,
                                             "",
                                             dbus.UInt16(port))
             self._entryGroup.Commit()
