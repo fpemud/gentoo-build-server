@@ -344,7 +344,7 @@ class AvahiServiceRegister:
         assert isinstance(service_name, str)
         assert service_type.endswith("._tcp") or service_type.endswith("._udp")
         assert isinstance(port, int)
-        self.serviceList.append((service_name, serivce_type, port))
+        self.serviceList.append((service_name, service_type, port))
 
     def start(self):
         DBusGMainLoop(set_as_default=True)
