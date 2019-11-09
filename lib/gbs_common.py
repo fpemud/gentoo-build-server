@@ -62,7 +62,15 @@ class GbsPluginManager:
 
     @staticmethod
     def getPluginNameList():
-        return [x.replace(".py", "") for x in os.listdir(GbsConst.pluginsDir)]
+        ret = []
+        for fn in os.listdir(GbsConst.pluginsDir):
+            if fn == "__pycache__":
+                continue
+            if os.path.isdir(fn):
+                ret.append(fn)
+            else:
+                ret.append(fn.replace(".py", ""))
+        return ret
 
     @staticmethod
     def loadPluginObject(pluginName, param, ctrlSession):
