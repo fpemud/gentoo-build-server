@@ -361,7 +361,7 @@ class AvahiServiceRegister:
 
     def stop(self):
         if self._ownerChangeHandler is not None:
-            GLib.source_remove(self._ownerChangeHandler)
+            dbus.SystemBus().remove_signal_receiver(self._ownerChangeHandler)
             self._ownerChangeHandler = None
         self._unregisterService()
         self._releaseServer()
@@ -381,7 +381,7 @@ class AvahiServiceRegister:
         assert self._server is None and self._retryCreateServerTimer is None
         assert self._entryGroup is None
         try:
-            self._server = dbus.SystemBus().Interface(dbus.SystemBus().get_object("org.freedesktop.Avahi", "/"), "org.freedesktop.Avahi.Server")
+            self._server = dbus.Interface(dbus.SystemBus().get_object("org.freedesktop.Avahi", "/"), "org.freedesktop.Avahi.Server")
             if self._server.GetState() == 2:    # avahi.SERVER_RUNNING
                 self._registerService()
             self._server.connect_to_signal("StateChanged", self.onSeverStateChanged)
@@ -396,7 +396,7 @@ class AvahiServiceRegister:
             GLib.source_remove(self._retryCreateServerTimer)
             self._retryCreateServerTimer = None
         if self._server is not None:
-            self._server.release()
+            self._server.remove_from_connection()
             self._server = None
 
     def onSeverStateChanged(self, state, error):
@@ -409,7 +409,7 @@ class AvahiServiceRegister:
     def _registerService(self):
         assert self._entryGroup is None and self._retryRegisterServiceTimer is None
         try:
-            self._entryGroup = dbus.SystemBus().Interface(dbus.SystemBus().get_object("org.freedesktop.Avahi", self._server.EntryGroupNew()),
+            self._entryGroup = dbus.Interface(dbus.SystemBus().get_object("org.freedesktop.Avahi", self._server.EntryGroupNew()),
                                                           "org.freedesktop.Avahi.EntryGroup")
             for serviceName, serviceType, port in self.serviceList:
                 self._entryGroup.AddService(-1,                 # avahi.IF_UNSPEC
