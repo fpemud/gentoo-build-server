@@ -339,6 +339,7 @@ class AvahiServiceRegister:
     """
 
     def __init__(self):
+        self.retryInterval = 30
         self.serviceList = []
 
     def add_service(self, service_name, service_type, port):
@@ -386,7 +387,7 @@ class AvahiServiceRegister:
                 self._registerService()
             self._server.connect_to_signal("StateChanged", self.onSeverStateChanged)
         except:
-            logging.error("Avahi create server failed", sys.exc_info())
+            logging.error("Avahi create server failed, retry in %d seconds" % (self.retryInterval), sys.exc_info())
             self._releaseServer()
             self._retryCreateServer()
 
@@ -395,9 +396,7 @@ class AvahiServiceRegister:
         if self._retryCreateServerTimer is not None:
             GLib.source_remove(self._retryCreateServerTimer)
             self._retryCreateServerTimer = None
-        if self._server is not None:
-            self._server.remove_from_connection()
-            self._server = None
+        self._server = None
 
     def onSeverStateChanged(self, state, error):
         if state == 2:      # avahi.SERVER_RUNNING
@@ -422,7 +421,7 @@ class AvahiServiceRegister:
             self._entryGroup.Commit()
             self._entryGroup.connect_to_signal("StateChanged", self.onEntryGroupStateChanged)
         except:
-            logging.error("Avahi register service failed", sys.exc_info())
+            logging.error("Avahi register service failed, retry in %d seconds" % (self.retryInterval), sys.exc_info())
             self._unregisterService()
             self._retryRegisterService()
 
@@ -454,7 +453,7 @@ class AvahiServiceRegister:
 
     def _retryCreateServer(self):
         assert self._retryCreateServerTimer is None
-        self._retryCreateServerTimer = GLib.timeout_add_seconds(30, self.__timeoutCreateServer)
+        self._retryCreateServerTimer = GLib.timeout_add_seconds(self.retryInterval, self.__timeoutCreateServer)
 
     def __timeoutCreateServer(self):
         self._retryCreateServerTimer = None
@@ -463,7 +462,7 @@ class AvahiServiceRegister:
 
     def _retryRegisterService(self):
         assert self._retryRegisterServiceTimer is None
-        self._retryRegisterServiceTimer = GLib.timeout_add_seconds(30, self.__timeoutRegisterService)
+        self._retryRegisterServiceTimer = GLib.timeout_add_seconds(self.retryInterval, self.__timeoutRegisterService)
 
     def __timeoutRegisterService(self):
         self._retryRegisterServiceTimer = None
