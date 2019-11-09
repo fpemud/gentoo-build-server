@@ -356,8 +356,8 @@ class AvahiServiceRegister:
         self._entryGroup = None
         self._retryRegisterServiceTimer = None
 
-        self._createServer()
-
+        if dbus.SystemBus().name_has_owner("org.freedesktop.Avahi"):
+            self._createServer()
         self._ownerChangeHandler = dbus.SystemBus().add_signal_receiver(self.onNameOwnerChanged, "NameOwnerChanged", None, None)
 
     def stop(self):
@@ -370,8 +370,11 @@ class AvahiServiceRegister:
     def onNameOwnerChanged(self, name, old, new):
         if name == "org.freedesktop.Avahi":
             if new != "" and old == "":
-                self._releaseServer()
-                self._createServer()
+                if self._server is None:
+                    self._createServer()
+                else:
+                    # this may happen on some rare case
+                    pass
             elif new == "" and old != "":
                 self._unregisterService()
                 self._releaseServer()
@@ -436,9 +439,11 @@ class AvahiServiceRegister:
                 if self._entryGroup.GetState() != 4:        # avahi.ENTRY_GROUP_FAILURE
                     self._entryGroup.Reset()
                     self._entryGroup.Free()
-                    # .Free() has mem leaks
+                    # .Free() has mem leaks?
                     self._entryGroup._obj._bus = None
                     self._entryGroup._obj = None
+            except dbus.exceptions.DBusException:
+                pass
             finally:
                 self._entryGroup = None
 
