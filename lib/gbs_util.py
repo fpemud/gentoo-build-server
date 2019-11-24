@@ -57,13 +57,6 @@ class GbsUtil:
         os.chown(filename, pwd.getpwnam(uid_name)[2], grp.getgrnam(gid_name)[2])
 
     @staticmethod
-    def idleInvoke(func, *args):
-        def _idleCallback(func, *args):
-            func(*args)
-            return False
-        GLib.idle_add(_idleCallback, func, *args)
-
-    @staticmethod
     def getFreeTcpPort(start_port=10000, end_port=65536):
         for port in range(start_port, end_port):
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
