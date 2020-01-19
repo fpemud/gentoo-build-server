@@ -101,7 +101,7 @@ class PluginObject:
     def _updateParallelism(self):
         # gather system information
         cpuNum = multiprocessing.cpu_count()                   # cpu core number
-        memSize = self.getPhysicalMemorySize()               # memory size in GiB
+        memSize = _Util.getPhysicalMemorySize()               # memory size in GiB
 
         # determine parallelism parameters
         buildInMemory = (memSize >= 24)
