@@ -235,7 +235,8 @@ class PluginObject:
 
 class _Util:
 
-    def getPhysicalMemorySize(self):
+    @staticmethod
+    def getPhysicalMemorySize():
         with open("/proc/meminfo", "r") as f:
             # We return memory size in GB.
             # Since the memory size shown in /proc/meminfo is always a
