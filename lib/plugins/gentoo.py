@@ -4,7 +4,10 @@
 import os
 import re
 import shutil
+import requests
 import multiprocessing
+from gi.repository import Gio
+from gi.repository import GLib
 
 
 class PluginObject:
@@ -40,47 +43,65 @@ class PluginObject:
             os.unlink(self.resolvConfFile)
 
     def _updateMirrors(self):
-        # countryCode, countryName = self.__geoGetCountry()
-        countryCode = "CN"
+        gentooMirrors = []
+        rsyncMirrors = []
+        kernelMirrors = []
 
-        if countryCode == "CN":
-            gentooMirrors = [
-                "http://mirrors.163.com/gentoo",
-                "https://mirrors.tuna.tsinghua.edu.cn/gentoo",
-            ]
-            rsyncMirrors = [
-                "rsync://rsync.cn.gentoo.org/gentoo-portage",
-                "rsync://rsync1.cn.gentoo.org/gentoo-portage",
-            ]
-            kernelMirrors = [
-                "https://mirrors.tuna.tsinghua.edu.cn/kernel",
-            ]
-        else:
-            gentooMirrors = []
-            rsyncMirrors = []
-            kernelMirrors = []
+        if True:
+            browser = _AvahiServiceBrowser("_mirrors._tcp")
+            browser.run()
+            for name, addr, port in browser.get_result_list():
+                ret = requests.get("http://%s:%d/api/mirrors" % (addr, port)).json()
+                if "gentoo" in ret and ret["gentoo"]["is_initialized"]:
+                    if "http" in ret["gentoo"]["protocol"]:
+                        s = ret["gentoo"]["protocol"]["http"]["url"]
+                        s = s.replace("{IP}", addr)
+                        gentooMirrors.append(s)
+                    elif "ftp" in ret["gentoo"]["protocol"]:
+                        s = ret["gentoo"]["protocol"]["ftp"]["url"]
+                        s = s.replace("{IP}", addr)
+                        gentooMirrors.append(s)
+                if "gentoo-portage" in ret and ret["gentoo-portage"]["is_initialized"]:
+                    if "rsync" in ret["gentoo-portage"]["protocol"]:
+                        s = ret["gentoo-portage"]["protocol"]["rsync"]["url"]
+                        s = s.replace("{IP}", addr)
+                        rsyncMirrors.append(s)
+                if "kernel" in ret and ret["kernel"]["is_initialized"]:
+                    if "http" in ret["kernel"]["protocol"]:
+                        s = ret["kernel"]["protocol"]["http"]["url"]
+                        s = s.replace("{IP}", addr)
+                        kernelMirrors.append(s)
+                    elif "ftp" in ret["kernel"]["protocol"]:
+                        s = ret["kernel"]["protocol"]["ftp"]["url"]
+                        s = s.replace("{IP}", addr)
+                        kernelMirrors.append(s)
+
+        if True:
+            # countryCode, countryName = self.__geoGetCountry()
+            countryCode = "CN"
+
+            if countryCode == "CN":
+                gentooMirrors += [
+                    "http://mirrors.163.com/gentoo",
+                    "https://mirrors.tuna.tsinghua.edu.cn/gentoo",
+                ]
+                rsyncMirrors += [
+                    "rsync://rsync.cn.gentoo.org/gentoo-portage",
+                    "rsync://rsync1.cn.gentoo.org/gentoo-portage",
+                ]
+                kernelMirrors += [
+                    "https://mirrors.tuna.tsinghua.edu.cn/kernel",
+                ]
 
         # modify make.conf
-        if gentooMirrors != []:
-            gentooMirrorStr = " ".join(gentooMirrors) + " "
-        else:
-            gentooMirrorStr = ""
-        if rsyncMirrors != []:
-            rsyncMirrorStr = " ".join(rsyncMirrors) + " "
-        else:
-            rsyncMirrorStr = ""
-        if kernelMirrors != []:
-            kernelMirrorStr = " ".join(kernelMirrors) + " "
-        else:
-            kernelMirrorStr = ""
-        self.__setMakeConfVar("GENTOO_MIRRORS", "%s${GENTOO_DEFAULT_MIRROR}" % (gentooMirrorStr))
-        self.__setMakeConfVar("RSYNC_MIRRORS", "%s${RSYNC_DEFAULT_MIRROR}" % (rsyncMirrorStr))
-        self.__setMakeConfVar("KERNEL_MIRRORS", "%s${KERNEL_DEFAULT_MIRROR}" % (kernelMirrorStr))
+        self.__setMakeConfVar("GENTOO_MIRRORS", "%s ${GENTOO_DEFAULT_MIRROR}" % (" ".join(gentooMirrors)))
+        self.__setMakeConfVar("RSYNC_MIRRORS", "%s ${RSYNC_DEFAULT_MIRROR}" % (" ".join(rsyncMirrors)))
+        self.__setMakeConfVar("KERNEL_MIRRORS", "%s ${KERNEL_DEFAULT_MIRROR}" % (" ".join(kernelMirrors)))
 
     def _updateParallelism(self):
         # gather system information
         cpuNum = multiprocessing.cpu_count()                   # cpu core number
-        memSize = self.__getPhysicalMemorySize()               # memory size in GiB
+        memSize = self.getPhysicalMemorySize()               # memory size in GiB
 
         # determine parallelism parameters
         buildInMemory = (memSize >= 24)
@@ -211,7 +232,10 @@ class PluginObject:
                     f.write("\n")
                 f.write("%s=\"%s\"\n" % (varName, varValue))
 
-    def __getPhysicalMemorySize(self):
+
+class _Util:
+
+    def getPhysicalMemorySize(self):
         with open("/proc/meminfo", "r") as f:
             # We return memory size in GB.
             # Since the memory size shown in /proc/meminfo is always a
@@ -219,3 +243,99 @@ class PluginObject:
             # reservation, so we do a "+1"
             m = re.search("^MemTotal:\\s+(\\d+)", f.read())
             return int(m.group(1)) / 1024 / 1024 + 1
+
+
+class _AvahiServiceBrowser:
+
+    """
+    Exampe:
+        obj = _AvahiServiceBrowser("_http._tcp")
+        obj.run()
+        obj.get_result_list()
+    """
+
+    def __init__(self, service):
+        self.service = service
+
+    def run(self):
+        self._result_dict = dict()
+
+        self._server = None
+        self._browser = None
+        self._error_message = None
+        try:
+            self._server = Gio.DBusProxy.new_for_bus_sync(Gio.BusType.SYSTEM,
+                                                          Gio.DBusProxyFlags.NONE,
+                                                          None,
+                                                          "org.freedesktop.Avahi",
+                                                          "/",
+                                                          "org.freedesktop.Avahi.Server")
+
+            path = self._server.ServiceBrowserNew("(iissu)",
+                                                  -1,                                   # interface = IF_UNSPEC
+                                                  0,                                    # protocol = PROTO_INET
+                                                  self.service,                         # type
+                                                  "",                                   # domain
+                                                  0)                                    # flags
+            self._browser = Gio.DBusProxy.new_for_bus_sync(Gio.BusType.SYSTEM,
+                                                           Gio.DBusProxyFlags.NONE,
+                                                           None,
+                                                           "org.freedesktop.Avahi",
+                                                           path,
+                                                           "org.freedesktop.Avahi.ServiceBrowser")
+            self._browser.connect("g-signal", self._signal_handler)
+
+            self._mainloop = GLib.MainLoop()
+            self._mainloop.run()
+            if self._error_message is not None:
+                raise Exception(self._error_message)
+        except GLib.Error as e:
+            # treat dbus as success but no result
+            if e.domain != "g-dbus-error-quark":    # FIXME: more eligant way?
+                raise
+        finally:
+            self._error_message = None
+            if self._browser is not None:
+                self._browser.Free()
+                self._browser = None
+            self._server = None
+
+    def get_result_list(self):
+        return self._result_dict.values()
+
+    def _signal_handler(self, proxy, sender, signal, param):
+        if signal == "ItemNew":
+            interface, protocol, name, stype, domain, flags = param.unpack()
+            self._server.ResolveService("(iisssiu)",
+                                        interface,
+                                        protocol,
+                                        name,
+                                        stype,
+                                        domain,
+                                        -1,                                     # interface = IF_UNSPEC
+                                        0,                                      # protocol = PROTO_INET
+                                        result_handler=self._service_resolved,
+                                        error_handler=self._failure_handler)
+
+        if signal == "ItemRemove":
+            interface, protocol, name, stype, domain, flags = param.unpack()
+            key = (interface, protocol, name, stype, domain)
+            if key in self._result_dict:
+                del self._result_dict[key]
+
+        if signal == "AllForNow":
+            self._mainloop.quit()
+
+        if signal == "Failure":
+            self._failure_handler(param)
+
+        return True
+
+    def _service_resolved(self, proxy, result, user_data):
+        interface, protocol, name, stype, domain, host, aprotocol, address, port, txt, flags = result
+        key = (interface, protocol, name, stype, domain)
+        self._result_dict[key] = (name, address, int(port))
+
+    def _failure_handler(self, error):
+        self._error_message = error
+        self._mainloop.quit()
