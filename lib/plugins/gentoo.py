@@ -56,60 +56,122 @@ class PluginObject:
             os.unlink(self.resolvConfFile)
 
     def _updateMirrors(self):
-        gentooMirrors = []
-        rsyncMirrors = []
-        kernelMirrors = []
-
+        # local mirrors
+        localGentooMirror = ""
+        localRsyncMirror = ""
+        localKernelMirror = ""
+        localArchMirror = ""
+        localPortageMirrorDict = dict()
         if True:
+            gentooMirrors = []
+            rsyncMirrors = []
+            kernelMirrors = []
+            archMirrors = []
+
             browser = _AvahiServiceBrowser("_mirrors._tcp")
             browser.run()
             for name, addr, port in browser.get_result_list():
-                ret = requests.get("http://%s:%d/api/mirrors" % (addr, port)).json()
-                if "gentoo" in ret and ret["gentoo"]["is_initialized"]:
-                    if "http" in ret["gentoo"]["protocol"]:
-                        s = ret["gentoo"]["protocol"]["http"]["url"]
-                        s = s.replace("{IP}", addr)
-                        gentooMirrors.append(s)
-                    elif "ftp" in ret["gentoo"]["protocol"]:
-                        s = ret["gentoo"]["protocol"]["ftp"]["url"]
-                        s = s.replace("{IP}", addr)
-                        gentooMirrors.append(s)
-                if "gentoo-portage" in ret and ret["gentoo-portage"]["is_initialized"]:
-                    if "rsync" in ret["gentoo-portage"]["protocol"]:
-                        s = ret["gentoo-portage"]["protocol"]["rsync"]["url"]
-                        s = s.replace("{IP}", addr)
-                        rsyncMirrors.append(s)
-                if "kernel" in ret and ret["kernel"]["is_initialized"]:
-                    if "http" in ret["kernel"]["protocol"]:
-                        s = ret["kernel"]["protocol"]["http"]["url"]
-                        s = s.replace("{IP}", addr)
-                        kernelMirrors.append(s)
-                    elif "ftp" in ret["kernel"]["protocol"]:
-                        s = ret["kernel"]["protocol"]["ftp"]["url"]
-                        s = s.replace("{IP}", addr)
-                        kernelMirrors.append(s)
+                for key, value in requests.get("http://%s:%d/api/mirrors" % (addr, port)).json().items():
+                    if not value.get("available", False):
+                        continue
 
+                    if key == "gentoo":
+                        if "http" in value["protocol"]:
+                            s = value["protocol"]["http"]["url"]
+                            s = s.replace("{IP}", addr)
+                            gentooMirrors.append(s)
+                        elif "ftp" in value["protocol"]:
+                            s = value["protocol"]["ftp"]["url"]
+                            s = s.replace("{IP}", addr)
+                            gentooMirrors.append(s)
+
+                    if key == "gentoo-portage":
+                        if "rsync" in value["protocol"]:
+                            s = value["protocol"]["rsync"]["url"]
+                            s = s.replace("{IP}", addr)
+                            rsyncMirrors.append(s)
+
+                    if key == "kernel":
+                        if "http" in value["protocol"]:
+                            s = value["protocol"]["http"]["url"]
+                            s = s.replace("{IP}", addr)
+                            kernelMirrors.append(s)
+                        elif "ftp" in value["protocol"]:
+                            s = value["protocol"]["ftp"]["url"]
+                            s = s.replace("{IP}", addr)
+                            kernelMirrors.append(s)
+
+                    if key == "archlinux":
+                        if "http" in value["protocol"]:
+                            s = value["protocol"]["http"]["url"]
+                            s = s.replace("{IP}", addr)
+                            archMirrors.append(s)
+
+                    if "http" in value["protocol"]:
+                        s = value["protocol"]["http"]["url"]
+                        s = s.replace("{IP}", addr)
+                        if key not in localPortageMirrorDict:
+                            localPortageMirrorDict[key] = []
+                        localPortageMirrorDict[key].append(s)
+                    elif "ftp" in value["protocol"]:
+                        s = value["protocol"]["ftp"]["url"]
+                        s = s.replace("{IP}", addr)
+                        if key not in localPortageMirrorDict:
+                            localPortageMirrorDict[key] = []
+                        localPortageMirrorDict[key].append(s)
+
+            localGentooMirror = " ".join(gentooMirrors)
+            localRsyncMirror = " ".join(rsyncMirrors)
+            localKernelMirror = " ".join(kernelMirrors)
+            localArchMirror = " ".join(archMirrors)
+
+        # regional public mirrors
+        publicGentooMirror = ""
+        publicRsyncMirror = ""
+        publicKernelMirror = ""
+        publicArchMirror = ""
         if True:
+            gentooMirrors = []
+            rsyncMirrors = []
+            kernelMirrors = []
+            archMirrors = []
+
             # countryCode, countryName = self.__geoGetCountry()
             countryCode = "CN"
 
             if countryCode == "CN":
-                gentooMirrors += [
+                gentooMirrors = [
                     "http://mirrors.163.com/gentoo",
                     "https://mirrors.tuna.tsinghua.edu.cn/gentoo",
                 ]
-                rsyncMirrors += [
+                rsyncMirrors = [
                     "rsync://rsync.cn.gentoo.org/gentoo-portage",
                     "rsync://rsync1.cn.gentoo.org/gentoo-portage",
                 ]
-                kernelMirrors += [
+                kernelMirrors = [
                     "https://mirrors.tuna.tsinghua.edu.cn/kernel",
                 ]
+                archMirrors = [
+                    "http://mirrors.neusoft.edu.cn/archlinux",
+                    "http://mirrors.tuna.tsinghua.edu.cn/archlinux",
+                    "http://mirrors.ustc.edu.cn/archlinux",
+                ]
+
+            publicGentooMirror = " ".join(gentooMirrors)
+            publicRsyncMirror = " ".join(rsyncMirrors)
+            publicKernelMirror = " ".join(kernelMirrors)
+            publicArchMirror = " ".join(archMirrors)
 
         # modify make.conf
-        self.__setMakeConfVar("GENTOO_MIRRORS", "%s ${GENTOO_DEFAULT_MIRROR}" % (" ".join(gentooMirrors)))
-        self.__setMakeConfVar("RSYNC_MIRRORS", "%s ${RSYNC_DEFAULT_MIRROR}" % (" ".join(rsyncMirrors)))
-        self.__setMakeConfVar("KERNEL_MIRRORS", "%s ${KERNEL_DEFAULT_MIRROR}" % (" ".join(kernelMirrors)))
+        self.__setMakeConfVar("GENTOO_MIRRORS", "%s %s ${GENTOO_DEFAULT_MIRROR}" % (localGentooMirror, publicGentooMirror))
+        self.__setMakeConfVar("RSYNC_MIRRORS", "%s %s ${RSYNC_DEFAULT_MIRROR}" % (localRsyncMirror, publicRsyncMirror))
+        self.__setMakeConfVar("KERNEL_MIRRORS", "%s %s ${KERNEL_DEFAULT_MIRROR}" % (localKernelMirror, publicKernelMirror))
+        self.__setMakeConfVar("ARCHLINUX_MIRRORS", "%s %s" % (localArchMirror, publicArchMirror))
+
+        # write to /etc/portage/mirrors
+        with open(self.mirrorsFile, "w") as f:
+            for name, mlist in localPortageMirrorDict.items():
+                f.write(name + "\t" + " ".join(mlist) + "\n")
 
     def _updateParallelism(self):
         # gather system information
