@@ -17,7 +17,9 @@ class PluginObject:
         self.api = api
         self.resolvConfFile = os.path.join(self.api.getRootDir(), "etc/resolv.conf")
         self.makeConfFile = os.path.join(self.api.getRootDir(), "etc/portage/make.conf")
+        self.mirrorsFile = os.path.join(self.api.getRootDir(), "etc/portage/mirrors")
         self.oriMakeConfContent = None
+        self.oriMirrorsFileContent = None
 
     def stage_working_start_handler(self, requestObj):
         self._prepare_root()
@@ -31,14 +33,25 @@ class PluginObject:
         if True:
             with open(self.makeConfFile, "r") as f:
                 self.oriMakeConfContent = f.read()
+            if os.path.exists(self.mirrorsFile):
+                with open(self.mirrorsFile, "r") as f:
+                    self.oriMirrorsFileContent = f.read()
             self._updateMirrors()
             self._updateParallelism()
 
     def _unprepare_root(self):
+        if self.oriMirrorsFileContent is not None:
+            with open(self.mirrorsFile, "w") as f:
+                f.write(self.oriMirrorsFileContent)
+                self.oriMirrorsFileContent = None
+        else:
+            _Util.forceDelete(self.mirrorsFile)
+
         if self.oriMakeConfContent is not None:
             with open(self.makeConfFile, "w") as f:
                 f.write(self.oriMakeConfContent)
                 self.oriMakeConfContent = None
+
         if os.path.exists(self.resolvConfFile):
             os.unlink(self.resolvConfFile)
 
@@ -244,6 +257,15 @@ class _Util:
             # reservation, so we do a "+1"
             m = re.search("^MemTotal:\\s+(\\d+)", f.read())
             return int(m.group(1)) / 1024 / 1024 + 1
+
+    @staticmethod
+    def forceDelete(filename):
+        if os.path.islink(filename):
+            os.remove(filename)
+        elif os.path.isfile(filename):
+            os.remove(filename)
+        elif os.path.isdir(filename):
+            shutil.rmtree(filename)
 
 
 class _AvahiServiceBrowser:
