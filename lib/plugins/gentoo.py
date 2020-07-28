@@ -76,49 +76,50 @@ class PluginObject:
                         continue
 
                     if key == "gentoo":
-                        if "http" in value["protocol"]:
-                            s = value["protocol"]["http"]["url"]
+                        if "http" in value["interface-file"]:
+                            s = value["interface-file"]["http"]["url"]
                             s = s.replace("{IP}", addr)
                             gentooMirrors.append(s)
-                        elif "ftp" in value["protocol"]:
-                            s = value["protocol"]["ftp"]["url"]
+                        elif "ftp" in value["interface-file"]:
+                            s = value["interface-file"]["ftp"]["url"]
                             s = s.replace("{IP}", addr)
                             gentooMirrors.append(s)
 
                     if key == "gentoo-portage":
-                        if "rsync" in value["protocol"]:
-                            s = value["protocol"]["rsync"]["url"]
+                        if "rsync" in value["interface-file"]:
+                            s = value["interface-file"]["rsync"]["url"]
                             s = s.replace("{IP}", addr)
                             rsyncMirrors.append(s)
 
                     if key == "kernel":
-                        if "http" in value["protocol"]:
-                            s = value["protocol"]["http"]["url"]
+                        if "http" in value["interface-file"]:
+                            s = value["interface-file"]["http"]["url"]
                             s = s.replace("{IP}", addr)
                             kernelMirrors.append(s)
-                        elif "ftp" in value["protocol"]:
-                            s = value["protocol"]["ftp"]["url"]
+                        elif "ftp" in value["interface-file"]:
+                            s = value["interface-file"]["ftp"]["url"]
                             s = s.replace("{IP}", addr)
                             kernelMirrors.append(s)
 
                     if key == "archlinux":
-                        if "http" in value["protocol"]:
-                            s = value["protocol"]["http"]["url"]
+                        if "http" in value["interface-file"]:
+                            s = value["interface-file"]["http"]["url"]
                             s = s.replace("{IP}", addr)
                             archMirrors.append(s)
 
-                    if "http" in value["protocol"]:
-                        s = value["protocol"]["http"]["url"]
-                        s = s.replace("{IP}", addr)
-                        if key not in localPortageMirrorDict:
-                            localPortageMirrorDict[key] = []
-                        localPortageMirrorDict[key].append(s)
-                    elif "ftp" in value["protocol"]:
-                        s = value["protocol"]["ftp"]["url"]
-                        s = s.replace("{IP}", addr)
-                        if key not in localPortageMirrorDict:
-                            localPortageMirrorDict[key] = []
-                        localPortageMirrorDict[key].append(s)
+                    if "interface-file" in value:
+                        if "http" in value["interface-file"]:
+                            s = value["interface-file"]["http"]["url"]
+                            s = s.replace("{IP}", addr)
+                            if key not in localPortageMirrorDict:
+                                localPortageMirrorDict[key] = []
+                            localPortageMirrorDict[key].append(s)
+                        elif "ftp" in value["interface-file"]:
+                            s = value["interface-file"]["ftp"]["url"]
+                            s = s.replace("{IP}", addr)
+                            if key not in localPortageMirrorDict:
+                                localPortageMirrorDict[key] = []
+                            localPortageMirrorDict[key].append(s)
 
             localGentooMirror = " ".join(gentooMirrors)
             localRsyncMirror = " ".join(rsyncMirrors)
