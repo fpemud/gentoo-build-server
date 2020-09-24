@@ -6,17 +6,20 @@ Offload workload to another server by synchronizing the entire system up there.
 Possible workloads are:
 1. installing packages through building (especailly for Gentoo)
 2. checking system integrity
+3. playing game
 
 
 Installation
 ===
-Currently syncupd can only installs on Gentoo.
+Currently syncupd can only be installed on Gentoo Linux.
 
 Steps:
 1. add overlay https://github.com/fpemud/fpemud-overlay
 2. emerge syncupd
-3. systemctl enable syncupd
-4. systemctl start syncupd
+3. emerge syncupd-plugin-gentoo (optional)
+4. emerge syncupd-plugin-xrdp-games (optional)
+5. systemctl enable syncupd
+6. systemctl start syncupd
 
 
 How does it work?
@@ -43,12 +46,12 @@ Security Consideration
 
 Synchronize your system elsewhere is intriscally insecure.
 You should take the following measurement to solve this problem:
-1. exclude critical files from synchronizing on client side, like /etc/shadow
+1. exclude critical files (like /etc/shadow) from synchronizing on client side
 2. deploy syncupd in local network 
 
 TODO
 ===
-1. cross-compiling
+1. cross-architecture-execution
    currently syncupd must be run on a machine which has the same or super architecure than the client machine
    in future, syncupd should auto create qemu virtual machine and cross-distcc to support cross architecure 
 2. realtime sync down
