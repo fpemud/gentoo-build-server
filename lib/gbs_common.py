@@ -184,7 +184,7 @@ class GbsSystem:
     def mount(self):
         assert self.loopDev is None
 
-        GbsUtil.shell("/bin/mount %s %s" % (self.imageFile, self.mntDir))
+        GbsUtil.shell("/user/bin/fuse2fs %s %s" % (self.imageFile, self.mntDir))
         try:
             out = GbsUtil.shell("/sbin/losetup -j %s" % (self.imageFile), "stdout").decode("utf-8")
             m = re.match("(/dev/loop[0-9]+): .*", out)
